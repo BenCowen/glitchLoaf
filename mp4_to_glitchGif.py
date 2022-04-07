@@ -43,8 +43,8 @@ subset_jitter = lambda f: 1/60 * frame_ramp[f]
 
 # Patch swapping parameters:
 nPatches = 10
-sizes_perc = lambda f:  0.2 * frame_ramp[f]
-filler_imgs = []
+size_perc = lambda f:  0.2 * frame_ramp[f]
+filler_imgs = [imageio.imread(r'imgs\ghoul-flame.png')]
  
 # Output GIF path:
 output_path = 'rollgif-new.gif'
@@ -77,7 +77,7 @@ while True:
     image = loaf.imSlice(image, subset, 
                                subset_jitter(frames_done))
     image = loaf.randomPatchSwap(image, nPatches,
-                                       sizes_perc(frames_done), 
+                                       size_perc(frames_done), 
                                        filler_imgs = filler_imgs)
     image = loaf.glitchThisImg(image, 
                                      glitchIntensity(frames_done), 

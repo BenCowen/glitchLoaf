@@ -34,12 +34,12 @@ class bunGlitcher:
             
         return self.glitchThis.glitch_image(img, intensity, color_offset = color)
     
-    def randomPatchSwap(self, img, nPatches, size_perc, filler_imgs = [], buffer = None):
-        # TODO:
-        # fix buffer so that the correct shapes get sliced out
+    def randomPatchSwap(self, img, nPatches, size_perc, filler_imgs = [], buffer = 0):
+        
         att = 'size' if (type(img) is Image.Image) else 'shape'
         imRows = getattr(img, att)[0]
         imCols = getattr(img, att)[1]
+        
         
         if size_perc*min(imRows, imCols) < 1:
             return img
@@ -49,20 +49,35 @@ class bunGlitcher:
         # Generate the patches
         for patch in range(nPatches):
             # Size:
-            nrows = r.randint(0, size_perc*imRows)
-            ncols = r.randint(0, size_perc*imCols)
+            nrows = r.randint(1, size_perc*imRows)
+            ncols = r.randint(1, size_perc*imCols)
             # Placement:
-            row1 = get_rand(imRows)
-            row2 = get_rand(imRows)
-            col1 = get_rand(imCols)
-            col2 = get_rand(imCols)
+            row1 = get_rand(imRows - nrows)
+            row2 = get_rand(imRows - nrows)
+            col1 = get_rand(imCols - ncols)
+            col2 = get_rand(imCols - ncols)
             z1   = r.randint(0, 3)
             z2   = r.randint(0, 3)
             # Set Filler:
             if len(filler_imgs) == 0:
                 filler = img[row1:row1+nrows, col1:col1+ncols, z1]
             else:
-                filler = self.imresize(filler_imgs[ r.randint(0,len(filler_imgs))], (nrows, ncols))
+                # # leave ONE original:
+                # new_z2 = [True, True, True]
+                # new_z2[z2] = False 
+                # leave TWO original:
+                new_z2 = [False, False, False]
+                new_z2[z2] = True 
+                imselect = r.randint(0, len(filler_imgs))
+                filler = np.zeros((nrows, ncols, sum(new_z2)))
+                next_channel = 0
+                for color_layer, use_color in enumerate(new_z2):
+                    if use_color:
+                        filler[:,:,next_channel] = self.imresize(
+                                                filler_imgs[imselect][:,:,color_layer], 
+                                                (ncols, nrows))
+                        next_channel += 1
+                z2 = new_z2
                 
             try:
                 img[row1:row1+nrows, col1:col1+ncols, z1] = img[row2:row2+nrows, col2:col2+ncols, z2]
