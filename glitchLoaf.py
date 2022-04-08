@@ -3,90 +3,163 @@
 Glitch Lib
 
 @author: Bunloaf23
+@contact: benjamin.cowen.math@gmail.com
 """
 from glitch_this import ImageGlitcher
 from PIL import Image
 import numpy as np
 import numpy.random as r
 
+# TODO: * preserve alpha channel in random occlusions
+#       * replace slicing with comprehension or smart indexing
+#       * probably want to restart cycle or something (instead of holding last frame)
+#       * see unfinished glitch routines at the end of file
 class bunGlitcher:
-    def __init__(self):
+    def __init__(self, ogDataPath, output = 'img'):
         self.glitchThis = ImageGlitcher()
+        self.ogDataPath = ogDataPath
         
+        # Analyze video vs image etc.
+        self._setupInputData(ogDataPath)
+        
+        # May be filled with gif frames:
+        self.outputGif = []
+        
+    def _setupInputData(self, dataPath):
+        if dataPath.endswith(('jpg','png')):
+            self.ogDataType = 'image'
+            self.ogData     = np.array(imageio.imread('glitchforge-raw.png'), dtype=float)
+            self.ogFrames   = 1
+        elif dataPath.endswith('mp4'):
+            self.ogDataType = 'video'
+            self.ogData     = imageio.get_reader(dataPath,  'ffmpeg')
+            self.ogFrames   = self.ogData._meta['nframes']
+        else:
+            raise NotImplementedError('only jpg, png, mp4 tested; convert to one of those!')
+            
+    ######################################
+    # Quality of life subroutines:
+    def _toPIL(self):
+        if type(self.img) is not Image.Image:
+            self.img = Image.fromarray(self.img)
+    def _shape(self):
+        att = 'size' if (type(self.img) is Image.Image) else 'shape'
+        return getattr(self.img, att)
     def randU0(self):
         return r.rand() - 0.5
-    def imresize(self, img, size):
-        return np.array(Image.fromarray(img).resize(size, resample = Image.BICUBIC))
+    def imresize(self, data, size):
+        return np.array(Image.fromarray(data).resize(size, resample = Image.BICUBIC))
+    def resizedSlices(self, data, nrows, ncols, color_channels):
+        ''' Resize the specified color channels of "data" '''
+        filler     = np.zeros((nrows, ncols, len(color_channels)))
+        for color_layer in color_channels:
+            filler[:,:,color_layer] = self.imresize(data[:,:,color_layer], 
+                                                    (ncols, nrows))
+        return filler
     
-    def imSlice(self, imgArr, subset, subset_jitter = 0):
-        # Take snippet for smaller gif
-        xjitter = round( self.randU0() * subset_jitter * imgArr.shape[0] )
-        yjitter = round( self.randU0() * subset_jitter * imgArr.shape[1] )
-        rowmin = max(round(subset[0][0] * imgArr.shape[0]) + xjitter, 0)
-        rowmax = min(round(subset[0][1] * imgArr.shape[0]) + yjitter, imgArr.shape[0])
-        colmin = max(round(subset[1][0] * imgArr.shape[1]) - xjitter, 0)
-        colmax = min(round(subset[1][1] * imgArr.shape[1]) - yjitter, imgArr.shape[1])
-        return imgArr[rowmin:rowmax, colmin:colmax, :]
+    ######################################
+    # Data Management
+    def nextFrame(self):
+        '''
+        If the input type is just an image, then that is used
+        over and over to make a gif from an image. If the input
+        type is a video, config parameters are used to get the
+        next frame.
+        '''
+        if self.ogDataType == 'image':
+            self.img = ogData
+        elif self.ogDataType == 'mp4':
+            # Get next Frame
+            self.frames_done += 1
+            # For now, just hold onto the last frame
+            self.frame_num    = min(self.frame_num + self.frame_stepsize,
+                                    self.frame_end)
+            self.reachedLastFrame = self.frame_num == self.frame_end
+            # Retrieve data:
+            self.img = vid.get_data(frame_num)
+        
+    def recordGifFrame(self):
+        ''' save the current frame to the output Gif'''
+        self.output.append(self.img)
+    def writeGIF(self, outputFileName = None):
+        
+        print('writing gif - may take a sec...')
+        imageio.mimsave(outputFileName, self.output)
+        print('Done!')
+        
+    ######################################
+    # Actual Glitch Effects
+    def imSlice(self, subset, subset_jitter = 0):
+        '''Take snippet for smaller gif'''
+        imRows = self._shape[0]
+        imCols = self._shape[1]
+        # Random top-left corner: can't be below zero.
+        xjitter = round( self.randU0() * subset_jitter * imRows )
+        rowmin = max(round(subset[0][0] * imRows + xjitter, 0)
+        colmin = max(round(subset[1][0] * imCols) - xjitter, 0)
+        #Random bottom-right corner: can't be bigger than data
+        yjitter = round( self.randU0() * subset_jitter * imCols )
+        rowmax = min(round(subset[0][1] * imRows + yjitter, imRows)
+        colmax = min(round(subset[1][1] * imCols) - yjitter, imCols)
+        self.img = self.img[rowmin:rowmax, colmin:colmax, :]
     
     def glitchThisImg(self, img, intensity, color = False):
-        if type(img) is not Image.Image:
-            img = Image.fromarray(img)
-            
-        return self.glitchThis.glitch_image(img, intensity, color_offset = color)
+        '''Invoke Glitch-This'''
+        self._toPIL()
+        self.img = self.glitchThis.glitch_image(self.img,
+                                                intensity,
+                                                color_offset = color)
     
-    def randomPatchSwap(self, img, nPatches, size_perc, filler_imgs = [], buffer = 0):
+    def randomOcclusion(self, nPatches, size_perc,
+                        filler_imgs = [], cChans_to_swap = 2):
+        '''
+        Random replacement of image patches 
+            (by swapping or from filler imgs)
+        '''
+        imRows = self._shape[0]
+        imCols = self._shape[1]
         
-        att = 'size' if (type(img) is Image.Image) else 'shape'
-        imRows = getattr(img, att)[0]
-        imCols = getattr(img, att)[1]
-        
-        
+        # Max patch size must be >= 1 pixel in both directions.
         if size_perc*min(imRows, imCols) < 1:
-            return img
+            return
         
-        
-        get_rand = lambda MAX: r.randint(buffer, (1-buffer) * MAX)
         # Generate the patches
         for patch in range(nPatches):
             # Size:
             nrows = r.randint(1, size_perc*imRows)
             ncols = r.randint(1, size_perc*imCols)
             # Placement:
-            row1 = get_rand(imRows - nrows)
-            row2 = get_rand(imRows - nrows)
-            col1 = get_rand(imCols - ncols)
-            col2 = get_rand(imCols - ncols)
-            z1   = r.randint(0, 3)
-            z2   = r.randint(0, 3)
+            row1 = r.randint(imRows - nrows)
+            row2 = r.randint(imRows - nrows)
+            col1 = r.randint(imCols - ncols)
+            col2 = r.randint(imCols - ncols)
+            z1   = r.randint(0, 3, 2)
+            z2   = r.randint(0, 3, 2)
             # Set Filler:
             if len(filler_imgs) == 0:
-                filler = img[row1:row1+nrows, col1:col1+ncols, z1]
+                # If no filler image data is provided, save
+                #  the 'sister patch' for swapping.
+                filler = self.img[row1:row1+nrows, col1:col1+ncols, z1]
             else:
-                # # leave ONE original:
-                # new_z2 = [True, True, True]
-                # new_z2[z2] = False 
-                # leave TWO original:
-                new_z2 = [False, False, False]
-                new_z2[z2] = True 
+                # If using filler data, need to reshape for the correct
+                #  sized patch and also decide which color channels
+                #  to replace and utilize.
                 imselect = r.randint(0, len(filler_imgs))
-                filler = np.zeros((nrows, ncols, sum(new_z2)))
-                next_channel = 0
-                for color_layer, use_color in enumerate(new_z2):
-                    if use_color:
-                        filler[:,:,next_channel] = self.imresize(
-                                                filler_imgs[imselect][:,:,color_layer], 
-                                                (ncols, nrows))
-                        next_channel += 1
-                z2 = new_z2
-                
-            try:
-                img[row1:row1+nrows, col1:col1+ncols, z1] = img[row2:row2+nrows, col2:col2+ncols, z2]
-            except ValueError:
-                pass
-            # Decide how to fill the 2nd patch:
-            img[row2:row2+nrows, col2:col2+ncols, z2] = filler
+                filler   = self.resizedSlices(filler_imgs[imselect])
+                  
+            # Fill patch 1 with patch 2,              
+            # try:
+            self.img[row1:row1+nrows, col1:col1+ncols, z1] = self.img[row2:row2+nrows, col2:col2+ncols, z2]
+            # except ValueError:
+            #     pass
+            # Fill patch 2 with filler:
+            self.img[row2:row2+nrows, col2:col2+ncols, z2] = filler
             
         return img
             
-            
-            
+        def stairCasingL1(self, L1_param = 0):
+            ''' use L1 regularization to cause staircasing artifacts'''
+            pass
+        def smoothNLastFrames(self, N):
+            ''' jointly process the last N frames of the output GIF'''
+            pass

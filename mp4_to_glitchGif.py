@@ -14,7 +14,7 @@ import glitchLoaf as glitchLib
 
 # Go ahead and load the mp4:
 movie_file = 'girls-rolling.mp4'
-vid = imageio.get_reader(movie_file,  'ffmpeg')
+loaf = glitchLib.bunGlitcher(movie_file)
 
 # Prayer to the RNGod
 rng_seed = 23
@@ -24,9 +24,9 @@ frame_beg      =  150
 frame_stepsize = 2
 frame_end      = 260 # -1 for all
 # Check last frame:
-n_frame = vid.count_frames()
-if ( frame_end < 0) or (frame_end > n_frame):
-    frame_end = n_frame
+    
+if ( frame_end < 0) or (frame_end > loaf.ogFrames):
+    frame_end = loaf.ogFrames
 frames2do = np.ceil((frame_end-frame_beg)/frame_stepsize)
 #############
 lin = np.linspace(0,1, int(frames2do/2))
@@ -55,9 +55,6 @@ output_path = 'rollgif-new.gif'
     
 frames_done = 0
 frames_todo = (frame_end- frame_beg) // frame_stepsize
-
-# TEMP:
-loaf = glitchLib.bunGlitcher()
     
 gif_list = []
 frame_num = frame_beg
@@ -70,38 +67,25 @@ while True:
     if isDone:
         break
     
-    # Load in data
-    image = vid.get_data(frame_num)
+    # Go to next frame
+    loaf.nextFrame()
     
-    # Process
-    image = loaf.imSlice(image, subset, 
-                               subset_jitter(frames_done))
-    image = loaf.randomPatchSwap(image, nPatches,
-                                       size_perc(frames_done), 
-                                       filler_imgs = filler_imgs)
-    image = loaf.glitchThisImg(image, 
-                                     glitchIntensity(frames_done), 
-                                     color = colorOffset(frames_done))
-    gif_list.append( image )
+    # Take jittered subset:
+    loaf.imSlice(subset, subset_jitter(frames_done))
+    # Random patch swapping and occlusion:
+    loaf.randomOcclusion(nPatches, size_perc(frames_done), 
+                         filler_imgs = filler_imgs)
+    # Apply Glitch-This effects:
+    loaf.glitchThisImg(glitchIntensity(frames_done), 
+                       color = colorOffset(frames_done))
+    # Save the frame:
+    loaf.saveGifFrame()
     
 # Roll it up
-print('writing gif - may take a sec...')
-imageio.mimsave(output_path, gif_list)
-print('Done!')
+loaf.writeGIF(output_path)
 
-# For a better glitcher:
-# class Glitcher:
-#     def __init__(self, parameters, glitchFcn = None, seed=23):
-        
-#         if glitchFcn is None: # use default: glitch-this
-#             glitchThis = ImageGlitcher()
-#             # If default isn't given then
-#             #  parameters need to match Glitch-This interface:
-#             self.glitchFrame = lambda img: glitchThis.glitch_image(img, **parameters)
-            
-#     def glitchImg(self, img):
-#         return self.glitchrame(img)
-#     def glitchVideo(self,img):
-# def GenericGlitchImage(img):
-    
-    
+
+
+
+
+
