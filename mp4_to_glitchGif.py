@@ -11,6 +11,11 @@ Frame by frame video glitcher with output to GIF.
 #    automates parameters/config
 #
 # use an actual config format
+#
+# TODO: need to somehow specify the algorithm itself...
+#   i.e. a list of transforms to apply to each frame
+#
+# Be able to hang onto a corruption for multiple frames
 
 # Import a video
 import imageio
@@ -24,7 +29,10 @@ import glitchLoaf as glitchLib
 # Input/output paths:
 # filename = 'girls-rolling.mp4'
 # filename = 'mad-sign.jpg'
-filename = 'sj3280.png'
+#filename = 'idol.jpg'
+# filename = 'sj3280.png'
+# filename = 'sgt-melon.png'
+filename = 'SJ-high5.gif'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 
@@ -36,28 +44,47 @@ gtInt = {'style':'constant',
          'max'  : 0,
          'min'  : 0}
 
+edgeGT = {'style':'updown-linear',
+          'max'  : 0,
+          'min'  : 0}
+
 subSlice = {'limits': [[0,1],[0,1]],
             'jitter-style': 'constant',
             'max'  : 0,
             'min'  : 0}
 
-occludes = {'num-style': 'constant',
-            'num-max': 0,
-            'num-min': 0,
+ghoul_ims  = [imageio.imread(r'imgs\ghoul-flame.png'), imageio.imread(r'imgs\ghoul-example.jpg')]
+ghoul_ims += [imageio.imread(r'imgs\ghoul{}.png'.format(n)) for n in range(4)]
+occludes = {'num-style': 'updown-linear',
+            'num-max': 2,
+            'num-min': 1,
             'size-style': 'updown-linear',
-            'size-max': 0.4,
+            'size-max': 0.7,
             'size-min': 0.2,
-            'filler-imgs': [imageio.imread(r'imgs\ghoul-flame.png'),
-                            imageio.imread(r'imgs\ghoul-example.jpg')]+
-                            [imageio.imread(r'imgs\ghoul{}.png'.format(n)) for n in range(4)]}
+            'filler-imgs': []}
+                            
+clrswp = {'style':'constant',
+          'max':0,
+          'min':0}
 
-resampleTo  = (1024, 1024)
-edgeWidener = 0.5
+noise = {'style': 'updown-linear',
+         'max':1,
+         'min':0,
+         'mode': None}#s&p'}
+
+blur = {'style':'constant',
+        'max':0,
+        'min':0}
+
+resampleTo  = (512, 512)
+edgeWidener = 0.333
+cannySig = 1
 
 # Not sure how to generalize the ramp book for "rule" scenario:
-colorOffset = lambda f: bool(f > (0.75*frames2do))
+colorOffset = lambda f: bool(f > (0.5*frames2do))
 
-frameSel = {'beg':0, 'stepsize':1, 'end':0}
+frameSel = {'beg':0, 'stepsize':1, 'end':-1}
+# frameSel = {'beg':150, 'stepsize':2, 'end':153}#260} # for girls-rolling
 
 ###############################################################################
 # From here on should be automated
@@ -70,18 +97,21 @@ frames2do = max(1, int(np.ceil((frameSel['end']-frameSel['beg'])/frameSel['steps
 
 #############
 lin = np.linspace(0,1, int(frames2do/2))
-ramps = {'updown-linear': [n for n in lin] + [1] + [n for n in reversed(lin)],
+ramps = {'increasing': np.linspace(0,1, int(frames2do)),
+         'updown-linear': [n for n in lin] + [1] + [n for n in reversed(lin)],
          'constant': [1]*frames2do}
 
 # Glitch-this parameters:
 glitchIntensity = lambda f:   gtInt['min']  +    gtInt['max'] * ramps[gtInt['style']][f]
+edgeGlitchInsty = lambda f:  edgeGT['min']  +   edgeGT['max'] * ramps[edgeGT['style']][f]
 # Subset slice parameters:
 subset_jitter  = lambda f: subSlice['min']  + subSlice['max'] * ramps[subSlice['jitter-style']][f]
 # Patch swapping parameters:
 size_perc = lambda f:  occludes['size-min'] + occludes['size-max'] * ramps[occludes['size-style']][f]
 n_occlude = lambda f:  occludes['num-min']  + occludes['num-max']  * ramps[occludes['num-style']][f]
-
-
+noiseMean = lambda f:         noise['min']  +    noise['max'] * ramps[noise['style']][f]
+blurWidth = lambda f:          blur['min']  +     blur['max'] * ramps[blur['style']][f]
+colorSwapProb = lambda f:          clrswp['min']  +     clrswp['max'] * ramps[clrswp['style']][f]
 #############################
 np.random.seed(rng_seed)
 frames_done = 0
@@ -100,8 +130,11 @@ while True:
     occSize = size_perc(frames_done)
     gtIntsy = glitchIntensity(frames_done)
     colrOff = colorOffset(frames_done)
-    nOcclde = n_occlude(frames_done)
-    
+    nOcclde = int(n_occlude(frames_done))
+    noisAvg = noiseMean(frames_done)
+    blurLvl = blurWidth(frames_done)
+    edgeGlt = edgeGlitchInsty(frames_done)
+    clrSwap = colorSwapProb(frames_done)
     #############################
     # Process the current frame
     # Go to next frame
@@ -110,13 +143,27 @@ while True:
     # Take jittered subset of the whole frame:
     loaf.imSlice(subSlice['limits'], imSlice)
     
+    # Extract and process edges before corrupting the image:
+    loaf.thiccEdges(width = edgeWidener,cannySig = cannySig)
+    loaf.glitchEdgeMask(edgeGlt)
+    
+    # Random color swapping:
+    loaf.randomColorSwap(prob = clrSwap)
     # Random patch swapping and occlusion:
     loaf.randomOcclusion(nOcclde, occSize, filler_imgs = occludes['filler-imgs'])
     
     # Apply Glitch-This effects:
     loaf.glitchThisImg(gtIntsy, color = colrOff)
     
-    loaf.thiccEdges(width = edgeWidener)
+    # Add Noise
+    loaf.addNoise(mode=noise['mode'], intensity = noisAvg)
+    
+    # Blur colors:
+    loaf.blur(gWidth = blurLvl)
+    
+    # Finally, multiply the original edges back in:
+    loaf.multiplyEdgeMask()
+    #############################
     # Save the frame:
     loaf.recordGifFrame()
     frames_done += 1

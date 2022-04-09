@@ -55,46 +55,6 @@ class bunGlitcher:
             raise NotImplementedError('only jpg, png, mp4 tested; convert to one of those!')
         self.frames_done = 0
         self.frame_num   = frame_beg
-        
-    ######################################
-    # Quality of life subroutines:
-    def _toPIL(self, inputs = None):
-        ''' converts numpy array to PIL and takes care of float->uint8'''
-        if inputs is None:
-            data = self.img
-        if type(self.img) is not Image.Image:
-            # Scale values back to uint8:
-            data = self.ui8toF64(data)
-            data *= 255
-            # Finally, wrap with PIL:
-            data = Image.fromarray(data.astype(np.uint8))
-        if inputs is None:
-            self.img = data
-        else:
-            return data
-        
-    def ui8toF64(self, data):
-        return data.astype(np.float64) / 255 
-    def _shape(self):
-        ''' gets the shape tuple whether PIL or numpy array'''
-        att = 'size' if (type(self.img) is Image.Image) else 'shape'
-        return getattr(self.img, att)
-    
-    def randU0(self):
-        ''' random uniform number in [-0.5, 0.5]'''
-        return r.rand() - 0.5
-    
-    def imresize(self, data, size):
-        ''' resamples `data` to given size'''
-        return np.array(Image.fromarray(data).resize(size, resample = Image.BICUBIC))
-    
-    def resizedSlices(self, data, nrows, ncols, color_channels):
-        ''' Resize the specified color channels of "data" '''
-        filler     = np.zeros((nrows, ncols, len(color_channels)))
-        for cIdx, color_layer in enumerate(color_channels):
-            filler[:,:,cIdx] = self.imresize(data[:,:,color_layer], 
-                                            (ncols, nrows))
-        return filler
     
     ######################################
     # Data Management
@@ -107,7 +67,6 @@ class bunGlitcher:
         '''
         if self.ogDataType == 'image':
             self.img = self.ogData
-            self.img /= self.img.max()
         elif self.ogDataType == 'video':
             # Get next Frame
             self.frames_done += 1
@@ -116,11 +75,16 @@ class bunGlitcher:
                                     self.frame_end)
             self.reachedLastFrame = self.frame_num == self.frame_end
             # Retrieve data:
-            self.img = self.ogData.get_data(self.frame_num)
+            self.img = np.array(self.ogData.get_data(self.frame_num), dtype=float)
+            
+        # Data is always in [0,1] until very end.
+        self.img = self.toNumpy01(self.img)
+        
+        # Resample to desired resolution:
         if self.resampleTo is not None:
             self.img = self.resizedSlices(self.img,
                                           self.resampleTo[0], self.resampleTo[1],
-                                          [n for n in range(self._shape()[-1])])
+                                          [n for n in range(self.img.shape[-1])])
         
     def recordGifFrame(self):
         ''' save the current frame to the output Gif'''
@@ -129,7 +93,6 @@ class bunGlitcher:
     def writeGIF(self):        
         print('writing gif - may take a while...')
         self.outputGif = [self._toPIL(frame) for frame in self.outputGif]
-            
         imageio.mimsave('{}.gif'.format(self.out_path), self.outputGif)
         print('Done!')
         
@@ -148,10 +111,48 @@ class bunGlitcher:
             ax.imshow(self.img, cmap = cmap)
             
         plt.savefig('{}.jpg'.format(self.out_path))
-        #plt.savefig('{}.png'.format(self.out_path), dpi = 150) 
         plt.close()
         print('Done!')
         
+    ######################################
+    # Quality of life subroutines:
+    def _toPIL(self, inputs = None):
+        ''' converts numpy array to PIL and takes care of float->uint8'''
+        data = self.img if (inputs is None) else inputs
+        if type(self.img) is not Image.Image:
+            # Scale values back to uint8:
+            data = self.toNumpy01(data)
+            data *= 255
+            # Finally, wrap with PIL:
+            data = Image.fromarray(data.astype(np.uint8))
+        if inputs is None:
+            self.img = data
+        else:
+            return data
+        
+    def toNumpy01(self, data):
+        data = np.array(data, dtype=float)
+        # Make sure it's in [0, 1]
+        data += data.min()
+        data /= data.max()
+        return data
+    
+    def randU0(self):
+        ''' random uniform number in [-0.5, 0.5]'''
+        return r.rand() - 0.5
+    
+    def imresize(self, data, size):
+        ''' resamples `data` to given size'''
+        return self.toNumpy01(self._toPIL(data).resize(size, resample = Image.BICUBIC))
+    
+    def resizedSlices(self, data, nrows, ncols, color_channels):
+        ''' Resize the specified color channels of "data" '''
+        filler = np.zeros((nrows, ncols, len(color_channels)))
+        for cIdx, color_layer in enumerate(color_channels):
+            filler[:,:,cIdx] = self.imresize(data[:,:,color_layer], 
+                                            (ncols, nrows))
+        return filler
+    
     ######################################
     # Actual Glitch Effects
     def imSlice(self, subset, subset_jitter = 0):
@@ -162,8 +163,8 @@ class bunGlitcher:
           use in the selection (0 gets the same subset every
           time).
         '''
-        imRows = self._shape()[0]
-        imCols = self._shape()[1]
+        imRows = self.img.shape[0]
+        imCols = self.img.shape[1]
         # Random top-left corner: can't be below zero.
         xjitter = round( self.randU0() * subset_jitter * imRows )
         rowmin = max(round(subset[0][0] * imRows) + xjitter, 0)
@@ -174,22 +175,23 @@ class bunGlitcher:
         colmax = min(round(subset[1][1] * imCols) - yjitter, imCols)
         self.img = self.img[rowmin:rowmax, colmin:colmax, :]
     
-    def glitchThisImg(self, intensity, color = False):
+    def glitchThisImg(self, intensity, color = False, att = 'img'):
         '''Invoke Glitch-This'''
         if intensity < 0.1:
             return
-        self.img = self.glitchThis.glitch_image(self.img,
-                                                intensity,
-                                                color_offset = color)
-    
+        setattr(self, att, self.toNumpy01(
+                            self.glitchThis.glitch_image(
+                             self._toPIL(getattr(self, att)),
+                            intensity,
+                            color_offset = color)))
     def randomOcclusion(self, nPatches, size_perc,
                         filler_imgs = [], cChans_to_swap = 2):
         '''
         Random replacement of image patches 
             (by swapping or from filler imgs)
         '''
-        imRows = self._shape()[0]
-        imCols = self._shape()[1]
+        imRows = self.img.shape[0]
+        imCols = self.img.shape[1]
         
         # Max patch size must be >= 1 pixel in both directions.
         if size_perc*min(imRows, imCols) < 1:
@@ -218,31 +220,62 @@ class bunGlitcher:
                 #  sized patch and also decide which color channels
                 #  to replace and utilize.
                 filler   = self.resizedSlices(filler_imgs[fillerSelect-1], nrows, ncols, z1)
+            # Random chance to flip filler:
+            if r.rand() > 0.5:
+                filler = np.flip(filler, axis=r.randint(0,2))
                   
             # Fill patch 1 with patch 2,              
-            # try:
             self.img[row1:row1+nrows, col1:col1+ncols, z1] = self.img[row2:row2+nrows, col2:col2+ncols, z2]
-            # except ValueError:
-            #     pass
             # Fill patch 2 with filler:
             self.img[row2:row2+nrows, col2:col2+ncols, z2] = filler
             
-    def addNoise(self, mode='speckle', mean = 0.1):
-        self.img = random_noise(self.img, mode=mode, mean=mean)
-        
-    def thiccEdges(self, width = 0.333):
+    def thiccEdges(self, width = 0.333, cannySig=1):
         if width == 0:
             return
-        n_color_channels = min(3, self._shape()[-1])
-        edges = np.full(self._shape(), 255)
+        imgsize = self.img.shape
+        n_color_channels = min(3, imgsize[-1])
+        edges = np.full((imgsize[0],imgsize[1],n_color_channels), 255)
         for channel in range(n_color_channels):
-            edge_mask = feature.canny(self.img[:,:,channel])
+            edge_mask = feature.canny(self.img[:,:,channel], sigma = cannySig)
             # Smooth to thicken:
             edge_mask = ndi.gaussian_filter(1.0*(edge_mask), width) > 0
             # Edges are black
             edges[edge_mask, channel] = 0 
             
-        self.img *= self.ui8toF64(edges)
+        self.edges = self.toNumpy01(edges)
+        
+    def randomColorSwap(self, prob = 0.5):
+        if r.rand() > 0.5:
+            rand_color1 = r.randint(0,3)
+            rand_color2 = r.randint(0,3)
+            if not rand_color1 == rand_color2:
+                temp = self.img[:,:, rand_color1]
+                self.img[:,:, rand_color1] = self.img[:,:, rand_color2]
+                self.img[:,:, rand_color2] = temp
+            
+    def multiplyEdgeMask(self):
+        n_color_channels = min(3, self.img.shape[-1])
+        self.img[:,:,:n_color_channels] *= self.edges
+        
+    def glitchEdgeMask(self, gtIntsy):
+        self.glitchThisImg(gtIntsy, att = 'edges')
+        
+    def addNoise(self, mode='speckle', intensity = 0.1):
+        if mode is None:
+            return
+        self.img = 0.5*(self.img + random_noise(self.img, mode=mode))#, mean=mean)
+        
+    def blur(self, gWidth = 1):
+        fw = int(gWidth)
+        if fw==0:
+            return
+        # Blur the colors individually:
+        n_color_channels = min(3, self.img.shape[-1])
+        for channel in range(n_color_channels):
+            #ndi.gaussian_filter(self.img[:,:,channel], gWidth)
+            self.img[:,:,channel] = ndi.convolve(self.img[:,:,channel], np.full((fw, fw), 1/fw**2))
+        # # Make sure result is still normalized...
+        # self.img = self.toNumpy01(self.img)
         
     def stairCasingL1(self, L1_param = 0):
         ''' use L1 regularization to cause staircasing artifacts'''
@@ -251,8 +284,6 @@ class bunGlitcher:
     def smoothNLastFrames(self, N):
         ''' jointly process the last N frames of the output GIF'''
         pass
-        
-        
         
         
         
