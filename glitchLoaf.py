@@ -12,30 +12,34 @@ from glitch_this import ImageGlitcher
 from PIL import Image
 import numpy as np
 import numpy.random as r
+import matplotlib.pyplot as plt
 
 # TODO: * preserve alpha channel in random occlusions
 #       * replace slicing with comprehension or smart indexing
 #       * probably want to restart cycle or something (instead of holding last frame)
 #       * see unfinished glitch routines at the end of file
+# TODO: better job of keeping original dynamic range
+#       info = np.iinfo(self.img.dtype)
 class bunGlitcher:
-    def __init__(self, ogDataPath, frame_beg = 0, 
-                       frame_end=-1, frame_stepsize = 1):
+    def __init__(self, ogDataPath, output_path, frameSelect):
         self.glitchThis = ImageGlitcher()
         self.ogDataPath = ogDataPath
+        self.out_path   = output_path
         
         # Analyze video vs image etc.
-        self.frame_beg = frame_beg
-        self.frame_end = frame_end
-        self.frame_stepsize = frame_stepsize
+        self.frame_beg = frameSelect['beg']
+        self.frame_end = frameSelect['end']
+        self.frame_stepsize = frameSelect['stepsize']
         self._setupInputData(ogDataPath, self.frame_beg)
         
         # May be filled with gif frames:
         self.outputGif = []
         
     def _setupInputData(self, dataPath, frame_beg = None):
+        ''' loads in the data to memory, initializes metadata'''
         if dataPath.endswith(('jpg','png')):
             self.ogDataType = 'image'
-            self.ogData     = np.array(imageio.imread('glitchforge-raw.png'), dtype=float)
+            self.ogData     = np.array(imageio.imread(dataPath), dtype=float)
             self.ogFrames   = 1
         elif dataPath.endswith('mp4'):
             self.ogDataType = 'video'
@@ -45,18 +49,31 @@ class bunGlitcher:
             raise NotImplementedError('only jpg, png, mp4 tested; convert to one of those!')
         self.frames_done = 0
         self.frame_num   = frame_beg
+        
     ######################################
     # Quality of life subroutines:
     def _toPIL(self):
+        ''' converts numpy array to PIL and takes care of float->uint8'''
         if type(self.img) is not Image.Image:
-            self.img = Image.fromarray(self.img)
+            # Scale values back to uint8:
+            self.img = self.img.astype(np.float64) / 255
+            self.img = 255 * self.img
+            # Finally, wrap with PIL:
+            self.img = Image.fromarray(self.img.astype(np.uint8))
+            
     def _shape(self):
+        ''' gets the shape tuple whether PIL or numpy array'''
         att = 'size' if (type(self.img) is Image.Image) else 'shape'
         return getattr(self.img, att)
+    
     def randU0(self):
+        ''' random uniform number in [-0.5, 0.5]'''
         return r.rand() - 0.5
+    
     def imresize(self, data, size):
+        ''' resamples `data` to given size'''
         return np.array(Image.fromarray(data).resize(size, resample = Image.BICUBIC))
+    
     def resizedSlices(self, data, nrows, ncols, color_channels):
         ''' Resize the specified color channels of "data" '''
         filler     = np.zeros((nrows, ncols, len(color_channels)))
@@ -89,16 +106,37 @@ class bunGlitcher:
     def recordGifFrame(self):
         ''' save the current frame to the output Gif'''
         self.outputGif.append(self.img)
-    def writeGIF(self, outputFileName = None):
         
-        print('writing gif - may take a sec...')
-        imageio.mimsave(outputFileName, self.outputGif)
+    def writeGIF(self):        
+        print('writing gif - may take a while...')
+        imageio.mimsave('{}.gif'.format(self.out_path), self.outputGif)
         print('Done!')
         
+    def writeFrame(self, cmap = None):
+        fig = plt.figure(dpi = 1200)
+        #fig.set_size_inches(1. * sizes[0] / sizes[1], 1, forward = False)
+        ax = plt.Axes(fig, [0., 0., 1., 1.])
+        ax.set_axis_off()
+        fig.add_axes(ax)
+        
+        if cmap is None:
+            ax.imshow(self.img)
+        else:
+            ax.imshow(self.img, cmap = cmap)
+            
+        plt.savefig('{}.jpg'.format(self.out_path))
+        #plt.savefig('{}.png'.format(self.out_path), dpi = 150) 
+        plt.close()
     ######################################
     # Actual Glitch Effects
     def imSlice(self, subset, subset_jitter = 0):
-        '''Take snippet for smaller gif'''
+        '''
+        Take snippet of the data where `subset` gives 
+          the percentages of each dimension to start/stop, 
+          and subset_jitter specifies how much randomness to 
+          use in the selection (0 gets the same subset every
+          time).
+        '''
         imRows = self._shape()[0]
         imCols = self._shape()[1]
         # Random top-left corner: can't be below zero.
