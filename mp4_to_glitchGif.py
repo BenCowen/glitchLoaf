@@ -32,7 +32,8 @@ import glitchLoaf as glitchLib
 #filename = 'idol.jpg'
 # filename = 'sj3280.png'
 # filename = 'sgt-melon.png'
-filename = 'SJ-high5.gif'
+# filename = 'SJ-high5.gif'
+filename = 'prof-pic.jpg'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 
@@ -40,8 +41,8 @@ output_path = r'results\{}'.format(filename.split('.')[0])
 # Glitch Settings
 rng_seed = 23
 
-gtInt = {'style':'constant',
-         'max'  : 0,
+gtInt = {'style':'updown-exp',
+         'max'  : 3,
          'min'  : 0}
 
 edgeGT = {'style':'updown-linear',
@@ -55,9 +56,9 @@ subSlice = {'limits': [[0,1],[0,1]],
 
 ghoul_ims  = [imageio.imread(r'imgs\ghoul-flame.png'), imageio.imread(r'imgs\ghoul-example.jpg')]
 ghoul_ims += [imageio.imread(r'imgs\ghoul{}.png'.format(n)) for n in range(4)]
-occludes = {'num-style': 'updown-linear',
-            'num-max': 2,
-            'num-min': 1,
+occludes = {'num-style': 'constant',
+            'num-max': 0,
+            'num-min': 0,
             'size-style': 'updown-linear',
             'size-max': 0.7,
             'size-min': 0.2,
@@ -73,17 +74,17 @@ noise = {'style': 'updown-linear',
          'mode': None}#s&p'}
 
 blur = {'style':'constant',
-        'max':0,
+        'max':20,
         'min':0}
 
 resampleTo  = (512, 512)
-edgeWidener = 0.333
-cannySig = 1
+edgeWidener = 0.24
+cannySig = 2
 
 # Not sure how to generalize the ramp book for "rule" scenario:
-colorOffset = lambda f: bool(f > (0.5*frames2do))
+colorOffset = lambda f: bool(f > (0*frames2do))
 
-frameSel = {'beg':0, 'stepsize':1, 'end':-1}
+frameSel = {'beg':0, 'stepsize':1, 'end':0}
 # frameSel = {'beg':150, 'stepsize':2, 'end':153}#260} # for girls-rolling
 
 ###############################################################################
@@ -99,6 +100,7 @@ frames2do = max(1, int(np.ceil((frameSel['end']-frameSel['beg'])/frameSel['steps
 lin = np.linspace(0,1, int(frames2do/2))
 ramps = {'increasing': np.linspace(0,1, int(frames2do)),
          'updown-linear': [n for n in lin] + [1] + [n for n in reversed(lin)],
+         'updown-exp': [n**2 for n in lin] + [1] + [n**2 for n in reversed(lin)],
          'constant': [1]*frames2do}
 
 # Glitch-this parameters:

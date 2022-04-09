@@ -98,7 +98,7 @@ class bunGlitcher:
         
     def writeFrame(self, cmap = None):
         print('writing JPG...')
-        sizes = self._shape()
+        sizes = self.img.shape
         fig = plt.figure(dpi = 1200)
         fig.set_size_inches(1. * sizes[0] / sizes[1], 1, forward = False)
         ax = plt.Axes(fig, [0., 0., 1., 1.])
