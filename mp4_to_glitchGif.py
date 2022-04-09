@@ -13,6 +13,7 @@ Frame by frame video glitcher with output to GIF.
 # use an actual config format
 
 # Import a video
+import imageio
 import numpy as np
 import glitchLoaf as glitchLib
 
@@ -21,8 +22,9 @@ import glitchLoaf as glitchLib
 
 ############################
 # Input/output paths:
-# input_file = r'imgs\girls-rolling.mp4'
-filename = 'mad-sign.jpg'
+# filename = 'girls-rolling.mp4'
+# filename = 'mad-sign.jpg'
+filename = 'sj3280.png'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 
@@ -31,8 +33,8 @@ output_path = r'results\{}'.format(filename.split('.')[0])
 rng_seed = 23
 
 gtInt = {'style':'constant',
-         'max'  : 4,
-         'min'  : 0.1}
+         'max'  : 0,
+         'min'  : 0}
 
 subSlice = {'limits': [[0,1],[0,1]],
             'jitter-style': 'constant',
@@ -40,24 +42,26 @@ subSlice = {'limits': [[0,1],[0,1]],
             'min'  : 0}
 
 occludes = {'num-style': 'constant',
-            'num-max': 10,
+            'num-max': 0,
             'num-min': 0,
             'size-style': 'updown-linear',
-            'size-max': 0.1,
-            'size-min': 0,
-            'filler-imgs': []}#imageio.imread(r'imgs\ghoul-flame.png')]}
+            'size-max': 0.4,
+            'size-min': 0.2,
+            'filler-imgs': [imageio.imread(r'imgs\ghoul-flame.png'),
+                            imageio.imread(r'imgs\ghoul-example.jpg')]+
+                            [imageio.imread(r'imgs\ghoul{}.png'.format(n)) for n in range(4)]}
 
-# FRAME RANGE:
+resampleTo  = (1024, 1024)
+edgeWidener = 0.5
 
-# girls-rolling:
-#frameSel = {'beg':150, 'stepsize':2, 'end':260}
+# Not sure how to generalize the ramp book for "rule" scenario:
+colorOffset = lambda f: bool(f > (0.75*frames2do))
 
-# single img:
-frameSel = {'beg':0, 'stepsize':1, 'end':5}
+frameSel = {'beg':0, 'stepsize':1, 'end':0}
 
 ###############################################################################
 # From here on should be automated
-loaf = glitchLib.bunGlitcher(input_file, output_path, frameSel)
+loaf = glitchLib.bunGlitcher(input_file, output_path, frameSel, resampleTo)
     
 # The actual gif loop happens outside the glitcher.
 # Can put -1 if you want all frames; also caps to the last frame. TODO: cycle?
@@ -77,8 +81,6 @@ subset_jitter  = lambda f: subSlice['min']  + subSlice['max'] * ramps[subSlice['
 size_perc = lambda f:  occludes['size-min'] + occludes['size-max'] * ramps[occludes['size-style']][f]
 n_occlude = lambda f:  occludes['num-min']  + occludes['num-max']  * ramps[occludes['num-style']][f]
 
-# Not sure how to generalize the ramp book for "rule" scenario:
-colorOffset = lambda f: bool(f > (0.75*frames2do))
 
 #############################
 np.random.seed(rng_seed)
@@ -114,6 +116,7 @@ while True:
     # Apply Glitch-This effects:
     loaf.glitchThisImg(gtIntsy, color = colrOff)
     
+    loaf.thiccEdges(width = edgeWidener)
     # Save the frame:
     loaf.recordGifFrame()
     frames_done += 1
