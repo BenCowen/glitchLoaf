@@ -13,8 +13,7 @@ import glitchLoaf as glitchLib
 # Configuration (settings)
 
 # Go ahead and load the mp4:
-movie_file = 'girls-rolling.mp4'
-loaf = glitchLib.bunGlitcher(movie_file)
+movie_file = r'imgs\girls-rolling.mp4'
 
 # Prayer to the RNGod
 rng_seed = 23
@@ -23,7 +22,7 @@ rng_seed = 23
 frame_beg      =  150
 frame_stepsize = 2
 frame_end      = 260 # -1 for all
-# Check last frame:
+loaf = glitchLib.bunGlitcher(movie_file, frame_beg, frame_end, frame_stepsize)
     
 if ( frame_end < 0) or (frame_end > loaf.ogFrames):
     frame_end = loaf.ogFrames
@@ -79,7 +78,7 @@ while True:
     loaf.glitchThisImg(glitchIntensity(frames_done), 
                        color = colorOffset(frames_done))
     # Save the frame:
-    loaf.saveGifFrame()
+    loaf.recordGifFrame()
     
 # Roll it up
 loaf.writeGIF(output_path)

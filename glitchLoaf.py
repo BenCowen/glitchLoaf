@@ -5,6 +5,9 @@ Glitch Lib
 @author: Bunloaf23
 @contact: benjamin.cowen.math@gmail.com
 """
+
+import imageio
+
 from glitch_this import ImageGlitcher
 from PIL import Image
 import numpy as np
@@ -15,17 +18,21 @@ import numpy.random as r
 #       * probably want to restart cycle or something (instead of holding last frame)
 #       * see unfinished glitch routines at the end of file
 class bunGlitcher:
-    def __init__(self, ogDataPath, output = 'img'):
+    def __init__(self, ogDataPath, frame_beg = 0, 
+                       frame_end=-1, frame_stepsize = 1):
         self.glitchThis = ImageGlitcher()
         self.ogDataPath = ogDataPath
         
         # Analyze video vs image etc.
-        self._setupInputData(ogDataPath)
+        self.frame_beg = frame_beg
+        self.frame_end = frame_end
+        self.frame_stepsize = frame_stepsize
+        self._setupInputData(ogDataPath, self.frame_beg)
         
         # May be filled with gif frames:
         self.outputGif = []
         
-    def _setupInputData(self, dataPath):
+    def _setupInputData(self, dataPath, frame_beg = None):
         if dataPath.endswith(('jpg','png')):
             self.ogDataType = 'image'
             self.ogData     = np.array(imageio.imread('glitchforge-raw.png'), dtype=float)
@@ -36,7 +43,8 @@ class bunGlitcher:
             self.ogFrames   = self.ogData._meta['nframes']
         else:
             raise NotImplementedError('only jpg, png, mp4 tested; convert to one of those!')
-            
+        self.frames_done = 0
+        self.frame_num   = frame_beg
     ######################################
     # Quality of life subroutines:
     def _toPIL(self):
@@ -52,9 +60,9 @@ class bunGlitcher:
     def resizedSlices(self, data, nrows, ncols, color_channels):
         ''' Resize the specified color channels of "data" '''
         filler     = np.zeros((nrows, ncols, len(color_channels)))
-        for color_layer in color_channels:
-            filler[:,:,color_layer] = self.imresize(data[:,:,color_layer], 
-                                                    (ncols, nrows))
+        for cIdx, color_layer in enumerate(color_channels):
+            filler[:,:,cIdx] = self.imresize(data[:,:,color_layer], 
+                                            (ncols, nrows))
         return filler
     
     ######################################
@@ -67,8 +75,8 @@ class bunGlitcher:
         next frame.
         '''
         if self.ogDataType == 'image':
-            self.img = ogData
-        elif self.ogDataType == 'mp4':
+            self.img = self.ogData
+        elif self.ogDataType == 'video':
             # Get next Frame
             self.frames_done += 1
             # For now, just hold onto the last frame
@@ -76,34 +84,34 @@ class bunGlitcher:
                                     self.frame_end)
             self.reachedLastFrame = self.frame_num == self.frame_end
             # Retrieve data:
-            self.img = vid.get_data(frame_num)
+            self.img = self.ogData.get_data(self.frame_num)
         
     def recordGifFrame(self):
         ''' save the current frame to the output Gif'''
-        self.output.append(self.img)
+        self.outputGif.append(self.img)
     def writeGIF(self, outputFileName = None):
         
         print('writing gif - may take a sec...')
-        imageio.mimsave(outputFileName, self.output)
+        imageio.mimsave(outputFileName, self.outputGif)
         print('Done!')
         
     ######################################
     # Actual Glitch Effects
     def imSlice(self, subset, subset_jitter = 0):
         '''Take snippet for smaller gif'''
-        imRows = self._shape[0]
-        imCols = self._shape[1]
+        imRows = self._shape()[0]
+        imCols = self._shape()[1]
         # Random top-left corner: can't be below zero.
         xjitter = round( self.randU0() * subset_jitter * imRows )
-        rowmin = max(round(subset[0][0] * imRows + xjitter, 0)
+        rowmin = max(round(subset[0][0] * imRows) + xjitter, 0)
         colmin = max(round(subset[1][0] * imCols) - xjitter, 0)
         #Random bottom-right corner: can't be bigger than data
         yjitter = round( self.randU0() * subset_jitter * imCols )
-        rowmax = min(round(subset[0][1] * imRows + yjitter, imRows)
+        rowmax = min(round(subset[0][1] * imRows) + yjitter, imRows)
         colmax = min(round(subset[1][1] * imCols) - yjitter, imCols)
         self.img = self.img[rowmin:rowmax, colmin:colmax, :]
     
-    def glitchThisImg(self, img, intensity, color = False):
+    def glitchThisImg(self, intensity, color = False):
         '''Invoke Glitch-This'''
         self._toPIL()
         self.img = self.glitchThis.glitch_image(self.img,
@@ -116,8 +124,8 @@ class bunGlitcher:
         Random replacement of image patches 
             (by swapping or from filler imgs)
         '''
-        imRows = self._shape[0]
-        imCols = self._shape[1]
+        imRows = self._shape()[0]
+        imCols = self._shape()[1]
         
         # Max patch size must be >= 1 pixel in both directions.
         if size_perc*min(imRows, imCols) < 1:
@@ -145,7 +153,7 @@ class bunGlitcher:
                 #  sized patch and also decide which color channels
                 #  to replace and utilize.
                 imselect = r.randint(0, len(filler_imgs))
-                filler   = self.resizedSlices(filler_imgs[imselect])
+                filler   = self.resizedSlices(filler_imgs[imselect], nrows, ncols, z1)
                   
             # Fill patch 1 with patch 2,              
             # try:
@@ -154,8 +162,6 @@ class bunGlitcher:
             #     pass
             # Fill patch 2 with filler:
             self.img[row2:row2+nrows, col2:col2+ncols, z2] = filler
-            
-        return img
             
         def stairCasingL1(self, L1_param = 0):
             ''' use L1 regularization to cause staircasing artifacts'''
