@@ -1,7 +1,7 @@
 # glitchLoaf
 Herein are image and video processing tools for glitch art. There is no UI, and the documentation is terrible (see down below the examples), but if one person expresses intrest in using it, that would be enough for me to do a better job at the configuration setup.
 
-The main cool effect that inspired me to make this is to glitch EDGES independently from the rest of the image. Since our eyes are good at edge detection we can still perceive the underlying art if the edges are in tact even when the colors are being glitched like crazy.
+The main cool effect that inspired me to make this is to glitch EDGES independently from the rest of the image. Since our eyes are good at edge detection we can still perceive the underlying art if the edges are intact even when the colors are being glitched like crazy.
 
 # Examples
 <img src="./results/prof-pic.gif"/>
