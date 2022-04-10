@@ -9,7 +9,16 @@ Herein are image and video processing tools for glitch art. There is no UI, and 
 The bottom two artworks used as example input is property of: [Shonen Junk](https://shonenjunk.xyz/).
 
 # How to use
-The beginning of the demo.py serves as the configuration file where you put most of your settings. Here are the options:
+Run `DEMO.py` after pointing it toward the data you want:
+```
+filename = 'lasjefas0.png'
+input_file  = r'imgs\{}'.format(filename)
+output_path = r'results\{}'.format(filename.split('.')[0])
+```
+You can just set `input_file` and `output_file` to be exactly where to load the input and save the output.
+
+The top `DEMO.py` hosts all the configuration parameters where you put most of your settings (except order of operations, you have to shift the method calls around in the bottom of the file).
+Here are the options:
 ### Frame Selection
 `frameSel = {'beg':0, 'stepsize':1, 'end': 20}`. For a single image output, set the `end` value to 0. IF your input is a video, then the frames `beg:stepsize:end` will each be glitched then animated into a gif. If the input is a single image, that image will be re-used over and over (but the glitches will change each "frame", resulting in an animation).
 ### What is a Glitch?

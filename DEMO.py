@@ -21,7 +21,7 @@ Frame by frame video glitcher with output to GIF.
 import imageio
 import numpy as np
 import glitchLoaf as glitchLib
-
+import matplotlib.pyplot as plt # TEMP
 ###############################################################################
 # Configuration (settings)
 
@@ -33,7 +33,12 @@ import glitchLoaf as glitchLib
 # filename = 'sj3280.png'
 # filename = 'sgt-melon.png'
 # filename = 'SJ-high5.gif'
-filename = 'prof-pic.jpg'
+# filename = 'prof-pic.jpg'
+# filename = 'marty.png'
+# filename = 'ghoul3.png'
+# filename = 'sj8271.jpg'
+# filename = 'sj5600.jpg'
+filename = 'lasjefas0.png'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 
@@ -41,18 +46,36 @@ output_path = r'results\{}'.format(filename.split('.')[0])
 # Glitch Settings
 rng_seed = 23
 
-gtInt = {'style':'updown-exp',
-         'max'  : 3,
-         'min'  : 0}
+gtSpec = {'int-style':'updown-exp',
+         'int-max'  : 0.25,
+         'int-min'  : 0.05,
+         'num-style':'updown-exp',
+         'num-max'  : 10,
+         'num-min'  : 2,
+         'sze-style':'updown-linear',
+         'sze-max'  : 1/10,
+         'sze-min'  : 1/60}
 
-edgeGT = {'style':'updown-linear',
-          'max'  : 0,
-          'min'  : 0}
+edgeGT = {'int-style':'constant',
+         'int-max'  : 0.05,
+         'int-min'  : 0.01,
+         'num-style':'constant',
+         'num-max'  : 5,
+         'num-min'  : 2,
+         'sze-style':'constant',
+         'sze-max'  : 1/20,
+         'sze-min'  : 1/60,
+         'edgeWidener': 0.23}
 
-subSlice = {'limits': [[0,1],[0,1]],
-            'jitter-style': 'constant',
-            'max'  : 0,
-            'min'  : 0}
+asRat = 1
+height = 512
+resampleTo  = (height, int(asRat * height))
+cannySig = 1
+
+
+blur = {'style':'updown-exp',
+        'max':25,
+        'min':0}
 
 ghoul_ims  = [imageio.imread(r'imgs\ghoul-flame.png'), imageio.imread(r'imgs\ghoul-example.jpg')]
 ghoul_ims += [imageio.imread(r'imgs\ghoul{}.png'.format(n)) for n in range(4)]
@@ -73,18 +96,15 @@ noise = {'style': 'updown-linear',
          'min':0,
          'mode': None}#s&p'}
 
-blur = {'style':'constant',
-        'max':20,
-        'min':0}
-
-resampleTo  = (512, 512)
-edgeWidener = 0.24
-cannySig = 2
+subSlice = {'limits': [[0,1],[0,1]],
+            'jitter-style': 'constant',
+            'max'  : 0,
+            'min'  : 0}
 
 # Not sure how to generalize the ramp book for "rule" scenario:
 colorOffset = lambda f: bool(f > (0*frames2do))
 
-frameSel = {'beg':0, 'stepsize':1, 'end':0}
+frameSel = {'beg':0, 'stepsize':1, 'end': 20}
 # frameSel = {'beg':150, 'stepsize':2, 'end':153}#260} # for girls-rolling
 
 ###############################################################################
@@ -103,9 +123,15 @@ ramps = {'increasing': np.linspace(0,1, int(frames2do)),
          'updown-exp': [n**2 for n in lin] + [1] + [n**2 for n in reversed(lin)],
          'constant': [1]*frames2do}
 
-# Glitch-this parameters:
-glitchIntensity = lambda f:   gtInt['min']  +    gtInt['max'] * ramps[gtInt['style']][f]
-edgeGlitchInsty = lambda f:  edgeGT['min']  +   edgeGT['max'] * ramps[edgeGT['style']][f]
+# Glitch parameters:
+glitchIntensity = lambda f:   gtSpec['int-min']  +    gtSpec['int-max'] * ramps[gtSpec['int-style']][f]
+numGlitches     = lambda f:   gtSpec['num-min']  +    gtSpec['num-max'] * ramps[gtSpec['num-style']][f]
+glitchSize      = lambda f:   gtSpec['sze-min']  +    gtSpec['sze-max'] * ramps[gtSpec['sze-style']][f]
+
+edgeGlitchInsty = lambda f:   edgeGT['int-min']  +    edgeGT['int-max'] * ramps[edgeGT['int-style']][f]
+edgeGlitchNum   = lambda f:   edgeGT['num-min']  +    edgeGT['num-max'] * ramps[edgeGT['num-style']][f]
+edgeGlitchSize  = lambda f:   edgeGT['sze-min']  +    edgeGT['sze-max'] * ramps[edgeGT['sze-style']][f]
+
 # Subset slice parameters:
 subset_jitter  = lambda f: subSlice['min']  + subSlice['max'] * ramps[subSlice['jitter-style']][f]
 # Patch swapping parameters:
@@ -129,13 +155,22 @@ while True:
     # Change parameters as
     #  w/frame number.
     imSlice = subset_jitter(frames_done)
-    occSize = size_perc(frames_done)
-    gtIntsy = glitchIntensity(frames_done)
-    colrOff = colorOffset(frames_done)
+    
     nOcclde = int(n_occlude(frames_done))
+    occSize = size_perc(frames_done)
+    
+    gtN       = int(numGlitches(frames_done))
+    gtIntsy   = glitchIntensity(frames_done)
+    gtChunkSz = glitchSize(frames_done)
+    colrOff = False #Notimplemented anymore...
+    
     noisAvg = noiseMean(frames_done)
     blurLvl = blurWidth(frames_done)
-    edgeGlt = edgeGlitchInsty(frames_done)
+    
+    edgeGlt     = edgeGlitchInsty(frames_done)
+    edgeGtSz    = edgeGlitchSize(frames_done)
+    nEdgeGlitch = edgeGlitchNum(frames_done)
+    
     clrSwap = colorSwapProb(frames_done)
     #############################
     # Process the current frame
@@ -143,19 +178,25 @@ while True:
     loaf.nextFrame()
     
     # Take jittered subset of the whole frame:
-    loaf.imSlice(subSlice['limits'], imSlice)
+    loaf.imSlice(subSlice['limits'], subset_jitter = imSlice)
     
     # Extract and process edges before corrupting the image:
-    loaf.thiccEdges(width = edgeWidener,cannySig = cannySig)
-    loaf.glitchEdgeMask(edgeGlt)
+    loaf.thiccEdges(width = edgeGT['edgeWidener'],cannySig = cannySig)
+    loaf.glitchImg(att='edges', n_glitch=nEdgeGlitch, direction = 'both',
+                    glitchIntensity = edgeGlt, glitchSize = edgeGtSz)
     
     # Random color swapping:
     loaf.randomColorSwap(prob = clrSwap)
     # Random patch swapping and occlusion:
     loaf.randomOcclusion(nOcclde, occSize, filler_imgs = occludes['filler-imgs'])
     
+    # Apply actual glitch:
+    # TODO: color jitter replacement?
+    loaf.glitchImg(att='img', n_glitch=gtN, direction = 'both',
+                   glitchIntensity = gtIntsy, glitchSize = gtChunkSz)
+    
     # Apply Glitch-This effects:
-    loaf.glitchThisImg(gtIntsy, color = colrOff)
+    # loaf.glitchImg(gtIntsy, color = colrOff)
     
     # Add Noise
     loaf.addNoise(mode=noise['mode'], intensity = noisAvg)
