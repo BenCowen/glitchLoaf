@@ -21,7 +21,7 @@ Frame by frame video glitcher with output to GIF.
 import imageio
 import numpy as np
 import glitchLoaf as glitchLib
-import matplotlib.pyplot as plt # TEMP
+
 ###############################################################################
 # Configuration (settings)
 
@@ -38,13 +38,17 @@ import matplotlib.pyplot as plt # TEMP
 # filename = 'ghoul3.png'
 # filename = 'sj8271.jpg'
 # filename = 'sj5600.jpg'
-filename = 'lasjefas0.png'
+# filename = 'lasjefas0.png'
+# filename = 'SJ-high5.gif'
+filename = 'gohan-dbz.mp4'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 
 ############################
 # Glitch Settings
 rng_seed = 23
+
+frameSel = {'beg':0, 'stepsize':2, 'end': -1}
 
 gtSpec = {'int-style':'updown-exp',
          'int-max'  : 0.25,
@@ -65,16 +69,16 @@ edgeGT = {'int-style':'constant',
          'sze-style':'constant',
          'sze-max'  : 1/20,
          'sze-min'  : 1/60,
-         'edgeWidener': 0.23}
+         'edgeWidener': 0.15}
 
 asRat = 1
-height = 512
+height = 256
 resampleTo  = (height, int(asRat * height))
 cannySig = 1
 
 
 blur = {'style':'updown-exp',
-        'max':25,
+        'max':35,
         'min':0}
 
 ghoul_ims  = [imageio.imread(r'imgs\ghoul-flame.png'), imageio.imread(r'imgs\ghoul-example.jpg')]
@@ -104,8 +108,6 @@ subSlice = {'limits': [[0,1],[0,1]],
 # Not sure how to generalize the ramp book for "rule" scenario:
 colorOffset = lambda f: bool(f > (0*frames2do))
 
-frameSel = {'beg':0, 'stepsize':1, 'end': 20}
-# frameSel = {'beg':150, 'stepsize':2, 'end':153}#260} # for girls-rolling
 
 ###############################################################################
 # From here on should be automated
@@ -113,7 +115,7 @@ loaf = glitchLib.bunGlitcher(input_file, output_path, frameSel, resampleTo)
     
 # The actual gif loop happens outside the glitcher.
 # Can put -1 if you want all frames; also caps to the last frame. TODO: cycle?
-frames2do = max(1, int(np.ceil((frameSel['end']-frameSel['beg'])/frameSel['stepsize'])))
+frames2do = max(1, int(np.ceil((loaf.frame_end-loaf.frame_beg)/loaf.frame_stepsize)))
 
 
 #############
@@ -140,7 +142,8 @@ n_occlude = lambda f:  occludes['num-min']  + occludes['num-max']  * ramps[occlu
 noiseMean = lambda f:         noise['min']  +    noise['max'] * ramps[noise['style']][f]
 blurWidth = lambda f:          blur['min']  +     blur['max'] * ramps[blur['style']][f]
 colorSwapProb = lambda f:          clrswp['min']  +     clrswp['max'] * ramps[clrswp['style']][f]
-#############################
+
+#######################################################################################
 np.random.seed(rng_seed)
 frames_done = 0
 while True:
