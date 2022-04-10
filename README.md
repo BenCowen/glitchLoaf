@@ -5,6 +5,7 @@ Herein are image and video processing tools for glitch art. There is no UI, and 
 <img src="./results/prof-pic.gif"/>
 <img src="./results/keepers/sj3280-swap.gif"/>
 <img src="./results/keepers/sj3280.gif"/>
+<img src="./results/keepers/gohan-dbz.gif"/>
 
 The bottom two artworks used as example input is property of: [Shonen Junk](https://shonenjunk.xyz/).
 

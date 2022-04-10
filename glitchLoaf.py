@@ -34,25 +34,28 @@ class bunGlitcher:
         self.frame_beg = frameSelect['beg']
         self.frame_end = frameSelect['end']
         self.frame_stepsize = frameSelect['stepsize']
-        self._setupInputData(ogDataPath, self.frame_beg)
+        self._setupInputData(ogDataPath)
         
         # May be filled with gif frames:
         self.outputGif = []
         
-    def _setupInputData(self, dataPath, frame_beg = None):
+    def _setupInputData(self, dataPath):
         ''' loads in the data to memory, initializes metadata'''
         if dataPath.endswith(('jpg','png')):
             self.ogDataType = 'image'
             self.ogData     = np.array(imageio.imread(dataPath), dtype=float)
             self.ogFrames   = 1
-        elif dataPath.endswith('mp4'):
+        elif dataPath.endswith(('gif','mp4')):
             self.ogDataType = 'video'
             self.ogData     = imageio.get_reader(dataPath,  'ffmpeg')
-            self.ogFrames   = self.ogData._meta['nframes']
+            self.ogFrames   = self.ogData.count_frames()-1
         else:
             raise NotImplementedError('only jpg, png, mp4 tested; convert to one of those!')
         self.frames_done = 0
-        self.frame_num   = frame_beg
+        self.frame_num   = self.frame_beg
+        if (self.frame_end<0) or (self.frame_end > self.ogFrames):
+            # Cap at the last frame (TODO: circular?)
+            self.frame_end = self.ogFrames
     
     ######################################
     # Data Management
