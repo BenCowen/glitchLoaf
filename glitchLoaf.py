@@ -13,7 +13,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Processing
-from glitch_this import ImageGlitcher
 from skimage.util import random_noise
 from skimage import feature
 from scipy import ndimage as ndi
@@ -27,7 +26,6 @@ import numpy.random as r
 #       info = np.iinfo(self.img.dtype)
 class bunGlitcher:
     def __init__(self, ogDataPath, output_path, frameSelect, resampleTo = None):
-        self.glitchThis = ImageGlitcher()
         self.ogDataPath = ogDataPath
         self.out_path   = output_path
         self.resampleTo = resampleTo
@@ -155,7 +153,7 @@ class bunGlitcher:
     
     ######################################
     # Actual Glitch Effects
-    def imSlice(self, subset, subset_jitter = 0):
+    def imSlice(self, subset, subset_jitter = 0, data = None):
         '''
         Take snippet of the data where `subset` gives 
           the percentages of each dimension to start/stop, 
@@ -163,8 +161,13 @@ class bunGlitcher:
           use in the selection (0 gets the same subset every
           time).
         '''
-        imRows = self.img.shape[0]
-        imCols = self.img.shape[1]
+        if data is None:
+            imRows = self.img.shape[0]
+            imCols = self.img.shape[1]
+        else:
+            imRows = data.shape[0]
+            imCols = data.shape[1]
+            
         # Random top-left corner: can't be below zero.
         xjitter = round( self.randU0() * subset_jitter * imRows )
         rowmin = max(round(subset[0][0] * imRows) + xjitter, 0)
@@ -173,17 +176,64 @@ class bunGlitcher:
         yjitter = round( self.randU0() * subset_jitter * imCols )
         rowmax = min(round(subset[0][1] * imRows) + yjitter, imRows)
         colmax = min(round(subset[1][1] * imCols) - yjitter, imCols)
-        self.img = self.img[rowmin:rowmax, colmin:colmax, :]
+        if data is None:
+            self.img = self.img[rowmin:rowmax, colmin:colmax, :]
+        else:
+            return data[rowmin:rowmax, colmin:colmax, :]
     
-    def glitchThisImg(self, intensity, color = False, att = 'img'):
-        '''Invoke Glitch-This'''
-        if intensity < 0.1:
-            return
-        setattr(self, att, self.toNumpy01(
-                            self.glitchThis.glitch_image(
-                             self._toPIL(getattr(self, att)),
-                            intensity,
-                            color_offset = color)))
+    def glitchRect(self, data, direction = 'horz', 
+                    maxBlockPerc = 0.2, intensity = 0.2):
+        ''' 
+         A block of rows/columns/etc. is shifted in bulk. The shift direction is
+           perpendicular to the dimension of selection (`direction`). The size
+           of the block is a percentage of the dimension to be blocked, and the
+           intensity is a percentage of the dimension to be shifted along.
+        '''
+        # Specify horizontal or veritcal:
+        blockDim = int(not (direction == 'horz'))
+        shiftDim = int(    (direction == 'horz'))
+        
+        # Specify parameters and quit if non-visible
+        blockLen = int((r.rand() * maxBlockPerc) * data.shape[blockDim])
+        shiftLen = int((r.rand() *    intensity) * data.shape[shiftDim])
+        if (blockLen < 1) or (shiftLen<1):
+            return data
+        # Express the block as percentage of the image size:
+        blockStart     = r.randint(0, data.shape[blockDim] - blockLen)
+        blockEnd       = blockStart + blockLen
+        blockStartPerc = blockStart/data.shape[blockDim]
+        blockEndPerc   =   blockEnd/data.shape[blockDim]
+        blockSubset    = [blockStartPerc, blockEndPerc]
+        
+        # Extract the shifted subarray from the image:
+        subset = [[], []]
+        subset[blockDim] = blockSubset
+        subset[shiftDim] = [0, 1]
+        subArr = self.imSlice(subset, data=data)
+        
+        # Use Numpy ROLL to apply glitch:
+        posneg   = 1 if (r.rand()>0.5) else -1
+        subArr = np.roll(subArr, posneg * shiftLen, axis=shiftDim)
+        
+        # Now but the subArr back into the data:
+        if direction == 'horz':
+            data[blockStart:blockEnd, :] = subArr
+        else:
+            data[:, blockStart:blockEnd, :] = subArr
+        
+        return data
+    
+    def glitchImg(self, att='img', n_glitch=1, direction = 'both',
+                  glitchIntensity = 0.2, glitchSize = 0.2):
+        useDir = direction
+        for glitch in range(n_glitch):
+            if direction == 'both':
+                useDir = 'horz' if (r.rand()>0.5) else 'vert'
+            setattr(self,att, self.glitchRect(data=getattr(self, att),
+                                       direction = useDir, 
+                                       maxBlockPerc = glitchSize,
+                                       intensity =glitchIntensity))
+
     def randomOcclusion(self, nPatches, size_perc,
                         filler_imgs = [], cChans_to_swap = 2):
         '''
@@ -256,9 +306,6 @@ class bunGlitcher:
     def multiplyEdgeMask(self):
         n_color_channels = min(3, self.img.shape[-1])
         self.img[:,:,:n_color_channels] *= self.edges
-        
-    def glitchEdgeMask(self, gtIntsy):
-        self.glitchThisImg(gtIntsy, att = 'edges')
         
     def addNoise(self, mode='speckle', intensity = 0.1):
         if mode is None:
