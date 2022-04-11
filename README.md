@@ -18,7 +18,10 @@ filename = 'lasjefas0.png'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 ```
-You can just set `input_file` and `output_file` to be exactly where to load the input and save the output.
+You can just set `input_file` and `output_file` to be exactly where to load the input and save the output. Dependencies:
+```
+imageio, PIL, numpy, matplotlib, skimage, scipy
+```
 
 The top `DEMO.py` hosts all the configuration parameters where you put most of your settings (except order of operations, you have to shift the method calls around in the bottom of the file).
 Here are the options:
