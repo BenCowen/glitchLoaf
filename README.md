@@ -9,7 +9,7 @@ The main cool effect that inspired me to make this is to glitch EDGES independen
 <img src="./results/keepers/sj3280.gif"/>
 <img src="./results/keepers/gohan-dbz.gif"/>
 
-The bottom two artworks used as example input is property of: [Shonen Junk](https://shonenjunk.xyz/).
+The middle two artworks used as example input is property of: [Shonen Junk](https://shonenjunk.xyz/).
 
 # How to use
 Run `DEMO.py` after pointing it toward the data you want:
