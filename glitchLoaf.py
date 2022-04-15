@@ -45,7 +45,7 @@ class bunGlitcher:
             self.ogDataType = 'image'
             self.ogData     = np.array(imageio.imread(dataPath), dtype=float)
             self.ogFrames   = 1
-        elif dataPath.endswith(('gif','mp4')):
+        elif dataPath.endswith(('gif','mp4','webp')):
             self.ogDataType = 'video'
             self.ogData     = imageio.get_reader(dataPath,  'ffmpeg')
             self.ogFrames   = self.ogData.count_frames()-1

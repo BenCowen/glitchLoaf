@@ -40,7 +40,13 @@ import glitchLoaf as glitchLib
 # filename = 'sj5600.jpg'
 # filename = 'lasjefas0.png'
 # filename = 'SJ-high5.gif'
-filename = 'gohan-dbz.mp4'
+# filename = 'gohan-dbz.mp4'
+# filename = 'gladYouEnjoyedIt.gif'
+# filename = 'sasuke.gif'
+# filename = 'gundam-gun.gif'
+
+# Put your desired input and output here!
+filename = 'sun-img.jpg'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 
@@ -48,28 +54,30 @@ output_path = r'results\{}'.format(filename.split('.')[0])
 # Glitch Settings
 rng_seed = 23
 
-frameSel = {'beg':0, 'stepsize':2, 'end': -1}
+frameSel = {'beg':0, 'stepsize':1, 'end': 20}
 
-gtSpec = {'int-style':'updown-exp',
+gtSpec = {'int-style':'increasing-exp',
          'int-max'  : 0.25,
-         'int-min'  : 0.05,
-         'num-style':'updown-exp',
+         'int-min'  : 0,
+         'num-style':'increasing',
          'num-max'  : 10,
-         'num-min'  : 2,
-         'sze-style':'updown-linear',
-         'sze-max'  : 1/10,
-         'sze-min'  : 1/60}
+         'num-min'  : 0,
+         'sze-style':'increasing',
+         'sze-max'  : 1/5,
+         'sze-min'  : 0}
 
-edgeGT = {'int-style':'constant',
-         'int-max'  : 0.05,
+edgeGT = {'int-style':'updown-exp',
+         'int-max'  : 0.01,
          'int-min'  : 0.01,
          'num-style':'constant',
          'num-max'  : 5,
          'num-min'  : 2,
          'sze-style':'constant',
-         'sze-max'  : 1/20,
+         'sze-max'  : 1/20, 
          'sze-min'  : 1/60,
-         'edgeWidener': 0.15}
+         'thicc-style':'constant',
+         'thicc-max': 0.1,
+         'thicc-min': 0.01}
 
 asRat = 1
 height = 256
@@ -77,12 +85,12 @@ resampleTo  = (height, int(asRat * height))
 cannySig = 1
 
 
-blur = {'style':'updown-exp',
-        'max':35,
+blur = {'style':'increasing',
+        'max':5,
         'min':0}
 
-ghoul_ims  = [imageio.imread(r'imgs\ghoul-flame.png'), imageio.imread(r'imgs\ghoul-example.jpg')]
-ghoul_ims += [imageio.imread(r'imgs\ghoul{}.png'.format(n)) for n in range(4)]
+# ghoul_ims  = [imageio.imread(r'imgs\ghoul-flame.png'), imageio.imread(r'imgs\ghoul-example.jpg')]
+# ghoul_ims += [imageio.imread(r'imgs\ghoul{}.png'.format(n)) for n in range(4)]
 occludes = {'num-style': 'constant',
             'num-max': 0,
             'num-min': 0,
@@ -111,16 +119,21 @@ colorOffset = lambda f: bool(f > (0*frames2do))
 
 ###############################################################################
 # From here on should be automated
+
 loaf = glitchLib.bunGlitcher(input_file, output_path, frameSel, resampleTo)
     
 # The actual gif loop happens outside the glitcher.
 # Can put -1 if you want all frames; also caps to the last frame. TODO: cycle?
-frames2do = max(1, int(np.ceil((loaf.frame_end-loaf.frame_beg)/loaf.frame_stepsize)))
+if loaf.frame_end == 1 and frameSel['end']>1:
+    frames2do = frameSel['end']
+else:
+    frames2do = max(1, int(np.ceil((loaf.frame_end-loaf.frame_beg)/loaf.frame_stepsize)))
 
 
 #############
 lin = np.linspace(0,1, int(frames2do/2))
 ramps = {'increasing': np.linspace(0,1, int(frames2do)),
+         'increasing-exp': [n**3 for n in np.linspace(0,1, int(frames2do))],
          'updown-linear': [n for n in lin] + [1] + [n for n in reversed(lin)],
          'updown-exp': [n**2 for n in lin] + [1] + [n**2 for n in reversed(lin)],
          'constant': [1]*frames2do}
@@ -133,6 +146,7 @@ glitchSize      = lambda f:   gtSpec['sze-min']  +    gtSpec['sze-max'] * ramps[
 edgeGlitchInsty = lambda f:   edgeGT['int-min']  +    edgeGT['int-max'] * ramps[edgeGT['int-style']][f]
 edgeGlitchNum   = lambda f:   edgeGT['num-min']  +    edgeGT['num-max'] * ramps[edgeGT['num-style']][f]
 edgeGlitchSize  = lambda f:   edgeGT['sze-min']  +    edgeGT['sze-max'] * ramps[edgeGT['sze-style']][f]
+edgeThiccner    = lambda f:   edgeGT['thicc-min']  +    edgeGT['thicc-max'] * ramps[edgeGT['thicc-style']][f]
 
 # Subset slice parameters:
 subset_jitter  = lambda f: subSlice['min']  + subSlice['max'] * ramps[subSlice['jitter-style']][f]
@@ -173,6 +187,7 @@ while True:
     edgeGlt     = edgeGlitchInsty(frames_done)
     edgeGtSz    = edgeGlitchSize(frames_done)
     nEdgeGlitch = edgeGlitchNum(frames_done)
+    edgeThc     = edgeThiccner(frames_done)
     
     clrSwap = colorSwapProb(frames_done)
     #############################
@@ -184,7 +199,7 @@ while True:
     loaf.imSlice(subSlice['limits'], subset_jitter = imSlice)
     
     # Extract and process edges before corrupting the image:
-    loaf.thiccEdges(width = edgeGT['edgeWidener'],cannySig = cannySig)
+    loaf.thiccEdges(width = edgeThc,cannySig = cannySig)
     loaf.glitchImg(att='edges', n_glitch=nEdgeGlitch, direction = 'both',
                     glitchIntensity = edgeGlt, glitchSize = edgeGtSz)
     

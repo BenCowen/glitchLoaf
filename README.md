@@ -6,13 +6,14 @@ Herein are image and video processing tools for glitch art. There is no UI, and 
 <img src="./results/keepers/sj3280-swap.gif"/>
 <img src="./results/keepers/sj3280.gif"/>
 <img src="./results/keepers/gohan-dbz.gif"/>
+<img src="./results/keepers/sun-img.gif"/>
 
 The bottom two artworks used as example input is property of: [Shonen Junk](https://shonenjunk.xyz/).
 
 # How to use
 Run `DEMO.py` after pointing it toward the data you want:
 ```
-filename = 'lasjefas0.png'
+filename = 'sun-img.jpg'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 ```
