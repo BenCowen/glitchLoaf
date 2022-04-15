@@ -1,6 +1,8 @@
 # glitchLoaf
 Herein are image and video processing tools for glitch art. There is no UI, and the documentation is terrible (see down below the examples), but if one person expresses intrest in using it, that would be enough for me to do a better job at the configuration setup.
 
+The main cool effect that inspired me to make this is to glitch EDGES independently from the rest of the image. Since our eyes are good at edge detection we can still perceive the underlying art if the edges are intact even when the colors are being glitched like crazy.
+
 # Examples
 <img src="./results/prof-pic.gif"/>
 <img src="./results/keepers/sj3280-swap.gif"/>
@@ -8,7 +10,7 @@ Herein are image and video processing tools for glitch art. There is no UI, and 
 <img src="./results/keepers/gohan-dbz.gif"/>
 <img src="./results/keepers/sun-img.gif"/>
 
-The bottom two artworks used as example input is property of: [Shonen Junk](https://shonenjunk.xyz/).
+The middle two artworks used as example input is property of: [Shonen Junk](https://shonenjunk.xyz/).
 
 # How to use
 Run `DEMO.py` after pointing it toward the data you want:
@@ -17,7 +19,10 @@ filename = 'sun-img.jpg'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 ```
-You can just set `input_file` and `output_file` to be exactly where to load the input and save the output.
+You can just set `input_file` and `output_file` to be exactly where to load the input and save the output. Dependencies:
+```
+imageio, PIL, numpy, matplotlib, skimage, scipy
+```
 
 The top `DEMO.py` hosts all the configuration parameters where you put most of your settings (except order of operations, you have to shift the method calls around in the bottom of the file).
 Here are the options:
@@ -46,7 +51,6 @@ The glitcher has three main parameters: intensity (`int`), number of glitches (`
   * `increasing` parameter starts at `min` and increases linearly to `max` at the last frame.
   * `updown-linear`: the parameter linearly increases from the `min` value until the middle frame where is reaches its `max` value, then linearly decreases back to `min` by the last frame.
   * `updown-exp`: same as `updown-linear`, except it changes more rapidly near the peak in the middle (quadratic)
-* The `int` keys 
 
 To walk through an example, suppose you input a .jpg and set the number of output frames to 20. The `gtSpec` variable defined above determins that the first frame will be altered by randomly selecting 10 different blocks  (`num-max`) that each get shifted by at 5% of the image dimension (`int-min`). Those blocks will be at most 1/60th of the image dimension (`sze-min`). At the 10th frame, still exactly 10 blocks will be shifted (because `num-style` is `constant`, `num-max` is always used). The other parameters will also be at their max.
 
