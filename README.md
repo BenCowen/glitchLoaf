@@ -8,9 +8,10 @@ The main cool effect that inspired me to make this is to glitch EDGES independen
 <img src="./results/keepers/sj3280-swap.gif"/>
 <img src="./results/keepers/sj3280.gif"/>
 <img src="./results/keepers/gohan-dbz.gif"/>
-<img src="./results/keepers/sun-img.gif"/>
+<img src="./results/sun-img.gif"/>
 
-The middle two artworks used as example input is property of: [Shonen Junk](https://shonenjunk.xyz/).
+The 2nd,3rd artworks used as example input is property of: [Shonen Junk](https://shonenjunk.xyz/). See my cryptotwitter thread for more examples!
+https://twitter.com/BenMooMath/status/1515833214690107395?s=20&t=5CH0PcgsmL6KmTgsCP5M4A
 
 # How to use
 Run `DEMO.py` after pointing it toward the data you want:
