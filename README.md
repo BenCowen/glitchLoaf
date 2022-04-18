@@ -27,7 +27,7 @@ imageio, PIL, numpy, matplotlib, skimage, scipy
 The top `DEMO.py` hosts all the configuration parameters where you put most of your settings (except order of operations, you have to shift the method calls around in the bottom of the file).
 Here are the options:
 ### Frame Selection
-`frameSel = {'beg':0, 'stepsize':1, 'end': 20}`. For a single image output, set the `end` value to 0. IF your input is a video, then the frames `beg:stepsize:end` will each be glitched then animated into a gif. If the input is a single image, that image will be re-used over and over (but the glitches will change each "frame", resulting in an animation).
+`frameSel = {'beg':0, 'stepsize':1, 'end': 20}`. For a single image output, set the `end` value to 0. IF your input is a video, then the frames `beg:stepsize:end` will each be glitched then animated into a gif. Set `end` to -1 to go to the final frame automatically. If the input is a single image, that image will be re-used over and over (but the glitches will change each "frame", resulting in an animation).
 ### What is a Glitch?
 In this context, a glitch is when you take a block of pixels out of an image and circularly shift it around the image. A random group of rows or columns are selected, and shifted, while holding the rest of the image unaltered.
 
