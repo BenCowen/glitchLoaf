@@ -46,7 +46,7 @@ import glitchLoaf as glitchLib
 # filename = 'gundam-gun.gif'
 
 # Put your desired input and output here!
-filename = 'sun-img.jpg'
+filename = r'sketchy-creco.png'
 input_file  = r'imgs\{}'.format(filename)
 output_path = r'results\{}'.format(filename.split('.')[0])
 
@@ -54,39 +54,39 @@ output_path = r'results\{}'.format(filename.split('.')[0])
 # Glitch Settings
 rng_seed = 23
 
-frameSel = {'beg':0, 'stepsize':1, 'end': 20}
+frameSel = {'beg':0, 'stepsize':1, 'end':  25}
 
-gtSpec = {'int-style':'increasing-exp',
-         'int-max'  : 0.25,
-         'int-min'  : 0,
-         'num-style':'increasing',
-         'num-max'  : 10,
-         'num-min'  : 0,
-         'sze-style':'increasing',
-         'sze-max'  : 1/5,
-         'sze-min'  : 0}
+gtSpec = {'int-style':'updown-linear',
+         'int-max'  : 0.333,
+         'int-min'  : 0.12,
+         'num-style':'updown-linear',
+         'num-max'  : 20,
+         'num-min'  : 2,
+         'sze-style':'updown-linear',
+         'sze-max'  : 1/20,
+         'sze-min'  : 0.05}
 
-edgeGT = {'int-style':'updown-exp',
-         'int-max'  : 0.01,
+edgeGT = {'int-style':'updown-linear',
+         'int-max'  : 0.1,
          'int-min'  : 0.01,
          'num-style':'constant',
-         'num-max'  : 5,
+         'num-max'  : 25,
          'num-min'  : 2,
          'sze-style':'constant',
-         'sze-max'  : 1/20, 
+         'sze-max'  : 1/25, 
          'sze-min'  : 1/60,
-         'thicc-style':'constant',
-         'thicc-max': 0.1,
-         'thicc-min': 0.01}
+         'thicc-style': 'constant',
+         'thicc-max': 0.05,
+         'thicc-min': 0.025}
 
 asRat = 1
-height = 256
+height = 512
 resampleTo  = (height, int(asRat * height))
 cannySig = 1
 
 
-blur = {'style':'increasing',
-        'max':5,
+blur = {'style':'updown-linear',
+        'max':10,
         'min':0}
 
 # ghoul_ims  = [imageio.imread(r'imgs\ghoul-flame.png'), imageio.imread(r'imgs\ghoul-example.jpg')]
@@ -94,8 +94,8 @@ blur = {'style':'increasing',
 occludes = {'num-style': 'constant',
             'num-max': 0,
             'num-min': 0,
-            'size-style': 'updown-linear',
-            'size-max': 0.7,
+            'size-style': 'constant',
+            'size-max': 0.333,
             'size-min': 0.2,
             'filler-imgs': []}
                             
@@ -103,10 +103,10 @@ clrswp = {'style':'constant',
           'max':0,
           'min':0}
 
-noise = {'style': 'updown-linear',
+noise = {'style': 'decreasing',
          'max':1,
          'min':0,
-         'mode': None}#s&p'}
+         'mode': 's&p'}
 
 subSlice = {'limits': [[0,1],[0,1]],
             'jitter-style': 'constant',
@@ -119,6 +119,7 @@ colorOffset = lambda f: bool(f > (0*frames2do))
 
 ###############################################################################
 # From here on should be automated
+# def createGlitch(input_file, output_path, frame_Sel, resampleTo)
 
 loaf = glitchLib.bunGlitcher(input_file, output_path, frameSel, resampleTo)
     
@@ -133,6 +134,7 @@ else:
 #############
 lin = np.linspace(0,1, int(frames2do/2))
 ramps = {'increasing': np.linspace(0,1, int(frames2do)),
+         'decreasing': [n for n in reversed(np.linspace(0,1,int(frames2do)))],
          'increasing-exp': [n**3 for n in np.linspace(0,1, int(frames2do))],
          'updown-linear': [n for n in lin] + [1] + [n for n in reversed(lin)],
          'updown-exp': [n**2 for n in lin] + [1] + [n**2 for n in reversed(lin)],
@@ -158,7 +160,7 @@ blurWidth = lambda f:          blur['min']  +     blur['max'] * ramps[blur['styl
 colorSwapProb = lambda f:          clrswp['min']  +     clrswp['max'] * ramps[clrswp['style']][f]
 
 #######################################################################################
-np.random.seed(rng_seed)
+# np.random.seed(rng_seed)
 frames_done = 0
 while True:
     #############################
@@ -186,8 +188,9 @@ while True:
     
     edgeGlt     = edgeGlitchInsty(frames_done)
     edgeGtSz    = edgeGlitchSize(frames_done)
-    nEdgeGlitch = edgeGlitchNum(frames_done)
+    nEdgeGlitch = int(edgeGlitchNum(frames_done))
     edgeThc     = edgeThiccner(frames_done)
+    edgeThc     = 0 if (edgeThc<0.01) else edgeThc
     
     clrSwap = colorSwapProb(frames_done)
     #############################
@@ -205,16 +208,14 @@ while True:
     
     # Random color swapping:
     loaf.randomColorSwap(prob = clrSwap)
-    # Random patch swapping and occlusion:
-    loaf.randomOcclusion(nOcclde, occSize, filler_imgs = occludes['filler-imgs'])
     
     # Apply actual glitch:
     # TODO: color jitter replacement?
     loaf.glitchImg(att='img', n_glitch=gtN, direction = 'both',
                    glitchIntensity = gtIntsy, glitchSize = gtChunkSz)
     
-    # Apply Glitch-This effects:
-    # loaf.glitchImg(gtIntsy, color = colrOff)
+    # Random patch swapping and occlusion:
+    loaf.randomOcclusion(nOcclde, occSize, filler_imgs = occludes['filler-imgs'])
     
     # Add Noise
     loaf.addNoise(mode=noise['mode'], intensity = noisAvg)

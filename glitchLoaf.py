@@ -86,6 +86,7 @@ class bunGlitcher:
             self.img = self.resizedSlices(self.img,
                                           self.resampleTo[0], self.resampleTo[1],
                                           [n for n in range(self.img.shape[-1])])
+            self.clean_img = np.copy(self.img)
         
     def recordGifFrame(self):
         ''' save the current frame to the output Gif'''
@@ -228,6 +229,8 @@ class bunGlitcher:
     
     def glitchImg(self, att='img', n_glitch=1, direction = 'both',
                   glitchIntensity = 0.2, glitchSize = 0.2):
+        if not hasattr(self, att):
+            return
         useDir = direction
         for glitch in range(n_glitch):
             if direction == 'both':
@@ -267,7 +270,7 @@ class bunGlitcher:
             if fillerSelect == 0:
                 # If no filler image data is provided, save
                 #  the 'sister patch' for swapping.
-                filler = self.img[row1:row1+nrows, col1:col1+ncols, z1]
+                filler = self.clean_img[row1:row1+nrows, col1:col1+ncols, z1]
             else:
                 # If using filler data, need to reshape for the correct
                 #  sized patch and also decide which color channels
@@ -278,9 +281,11 @@ class bunGlitcher:
                 filler = np.flip(filler, axis=r.randint(0,2))
                   
             # Fill patch 1 with patch 2,              
-            self.img[row1:row1+nrows, col1:col1+ncols, z1] = self.img[row2:row2+nrows, col2:col2+ncols, z2]
+            self.img[row1:row1+nrows, col1:col1+ncols, z1] = self.clean_img[row2:row2+nrows, col2:col2+ncols, z2]
             # Fill patch 2 with filler:
             self.img[row2:row2+nrows, col2:col2+ncols, z2] = filler
+            
+            # Add on previous occlusions that have a hold time remaining:
             
     def thiccEdges(self, width = 0.333, cannySig=1):
         if width == 0:
@@ -307,6 +312,9 @@ class bunGlitcher:
                 self.img[:,:, rand_color2] = temp
             
     def multiplyEdgeMask(self):
+        if not hasattr(self, 'edges'):
+            print('tried multiplying edge mask but none available.')
+            return
         n_color_channels = min(3, self.img.shape[-1])
         self.img[:,:,:n_color_channels] *= self.edges
         
