@@ -99,7 +99,7 @@ class bunGlitcher:
         print('Done!')
         
     def writeFrame(self, cmap = None):
-        print('writing JPG...')
+        print('writing JPG to "{}"...'.format(self.out_path))
         sizes = self.img.shape
         fig = plt.figure(dpi = 1200)
         fig.set_size_inches(1. * sizes[0] / sizes[1], 1, forward = False)
@@ -229,7 +229,7 @@ class bunGlitcher:
     
     def glitchImg(self, att='img', n_glitch=1, direction = 'both',
                   glitchIntensity = 0.2, glitchSize = 0.2):
-        if not hasattr(self, att):
+        if not hasattr(self, att) or (n_glitch<1) or (glitchIntensity==0):
             return
         useDir = direction
         for glitch in range(n_glitch):
@@ -239,7 +239,56 @@ class bunGlitcher:
                                        direction = useDir, 
                                        maxBlockPerc = glitchSize,
                                        intensity =glitchIntensity))
+    
+    def bismuthGrowth(self, patchSize, length, max_jump = 0.1, 
+                      direction_consistency = 1, distSamplerName='normal'):
+        '''
+        Take a block of pixels and slide it around, leaving a trail of itself behind.
+        direction_consistency: how crazy the trail is
+            If direction_consistency == 0, direction of trail is random.
+            If direction_consistency == 1, direction is unchanging after 1st random pull.
+        
+        distSamplerName: name of numpy.random module from which to sample distances.
+        '''
+        def renorm(X):
+            return X/X.sum()
+        
+        def randomUnitVector(N):
+            ''' generate a random vector on unit N-ball'''
+            random_direction = renorm(np.random.rand(N) - 0.5)
+            return np.array(random_direction)
+        
+        imRows = self.img.shape[0]
+        imCols = self.img.shape[1]
+        patchSize = [0.15, 0.15]
+        patchPixels =  np.array([round(patchSize[0] * imRows), round(patchSize[1] * imCols)])
+        halfPat     =  np.array([round(patchPixels[0] / 2), round(patchPixels[1] /2)])
+        
+        # Initialize stepsizer
+        sampleStepsize = lambda: getattr(np.random, distSamplerName)()
+        
+        # TODO: randomize starting position
+        lastDir = np.array([0, 1]) #randomUnitVector(2)
+        lastRow = round(imRows * 0.5)
+        lastCol = round(imCols * 0.5)
+        patch = self.img[lastRow-halfPat[0]:lastRow+halfPat[0],
+                         lastCol-halfPat[1]:lastCol+halfPat[1],:]
+        
+        for fram in range(length):
+            # Calculate next block location:
+            lastDir = direction_consistency * renorm(lastDir) + (1-direction_consistency)*randomUnitVector(2)
+            offset = (sampleStepsize() * max_jump * patchPixels) * renorm(lastDir)
+            lastRow += round(offset[0])
+            lastCol += round(offset[1])
+            
+            lastRow = max(0, lastRow)
+            lastCol = max(0, lastCol)
+            # Add the block to the new location:
+            self.img[lastRow-halfPat[0]:lastRow+halfPat[0],
+                     lastCol-halfPat[1]:lastCol+halfPat[1],:] = patch
+            
 
+        
     def randomOcclusion(self, nPatches, size_perc,
                         filler_imgs = [], cChans_to_swap = 2):
         '''
@@ -303,7 +352,7 @@ class bunGlitcher:
         self.edges = self.toNumpy01(edges)
         
     def randomColorSwap(self, prob = 0.5):
-        if r.rand() > 0.5:
+        if r.rand() > (1-prob):
             rand_color1 = r.randint(0,3)
             rand_color2 = r.randint(0,3)
             if not rand_color1 == rand_color2:

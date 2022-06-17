@@ -8,6 +8,8 @@ Created on Mon May 23 15:07:12 2022
 
 import numpy as np
 import glitchLoaf as glitchLib
+import imageio as imgio
+
 
 ###############################################################################
 # From here on should be automated
@@ -22,6 +24,9 @@ def createGlitch(input_file, output_path, glitch_config):
     else:
         frames2do = max(1, int(np.ceil((loaf.frame_end-loaf.frame_beg)/loaf.frame_stepsize)))
     
+    # TODO:
+    # Not sure how to generalize the ramp book for "rule" scenario:
+    glitch_config['colorOffset'] = lambda f: bool(f > (0*frames2do))
     
     #############
     lin = np.linspace(0,1, int(frames2do/2))
@@ -58,8 +63,15 @@ def createGlitch(input_file, output_path, glitch_config):
     blurWidth = lambda f:          blur['min']  +     blur['max'] * ramps[blur['style']][f]
     colorSwapProb = lambda f:          clrswp['min']  +     clrswp['max'] * ramps[clrswp['style']][f]
     
+    
     #######################################################################################
-    # np.random.seed(rng_seed)
+    if (len(occludes['filler-imgs'])>0) and (isinstance(occludes['filler-imgs'][0], str)):
+        filler_images = [imgio.imread(imgPath) for imgPath in occludes['filler-imgs']]
+    else:
+        filler_images = occludes['filler-imgs']
+        
+    #######################################################################################
+    np.random.seed(glitch_config['rng-seed'])
     frames_done = 0
     while True:
         #############################
@@ -97,6 +109,17 @@ def createGlitch(input_file, output_path, glitch_config):
         # Go to next frame
         loaf.nextFrame()
         
+        # Bismuth growth
+        if glitch_config['bismuth']  is not None:
+            patchSize = 0.2
+            length = 20
+            direction_consistency = 0.75
+            max_jump = 0.1
+            distSamplerName = 'normal'
+            loaf.bismuthGrowth(patchSize = patchSize, length = length, max_jump =max_jump, 
+                                direction_consistency = direction_consistency,
+                                distSamplerName=distSamplerName)
+        
         # Take jittered subset of the whole frame:
         loaf.imSlice(subSlice['limits'], subset_jitter = imSlice)
         
@@ -114,16 +137,16 @@ def createGlitch(input_file, output_path, glitch_config):
                        glitchIntensity = gtIntsy, glitchSize = gtChunkSz)
         
         # Random patch swapping and occlusion:
-        loaf.randomOcclusion(nOcclde, occSize, filler_imgs = occludes['filler-imgs'])
-        
-        # Add Noise
-        loaf.addNoise(mode=noise['mode'], intensity = noisAvg)
+        loaf.randomOcclusion(nOcclde, occSize, filler_imgs = filler_images)
         
         # Blur colors:
         loaf.blur(gWidth = blurLvl)
         
         # Finally, multiply the original edges back in:
         loaf.multiplyEdgeMask()
+        
+        # Add Noise
+        loaf.addNoise(mode=noise['mode'], intensity = noisAvg)
         #############################
         # Save the frame:
         loaf.recordGifFrame()
