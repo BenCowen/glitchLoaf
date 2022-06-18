@@ -111,14 +111,19 @@ def createGlitch(input_file, output_path, glitch_config):
         
         # Bismuth growth
         if glitch_config['bismuth']  is not None:
-            patchSize = 0.2
-            length = 20
+            patchSize = [np.random.rand()/2 for n in range(2)]
+            startPoint =  [0.5+(np.random.rand() -0.5)/2.5 for n in range(2)] #[0.33, 0.5]
+            startDirection = None#[1, 1]
+            length = np.random.randint(0,15)
             direction_consistency = 0.75
-            max_jump = 0.1
+            max_jump = 0.25
             distSamplerName = 'normal'
-            loaf.bismuthGrowth(patchSize = patchSize, length = length, max_jump =max_jump, 
+            do_edge = False
+            filler = imgio.imread(r"C:\Users\BenJammin\Desktop\glitchLoaf\imgs\ghoul-flame.png") 
+            loaf.bismuthGrowth(startPoint, startDirection, patchSize = patchSize, 
+                                length = length, max_jump =max_jump, 
                                 direction_consistency = direction_consistency,
-                                distSamplerName=distSamplerName)
+                                distSamplerName=distSamplerName, do_edge=do_edge, filler=filler)
         
         # Take jittered subset of the whole frame:
         loaf.imSlice(subSlice['limits'], subset_jitter = imSlice)
