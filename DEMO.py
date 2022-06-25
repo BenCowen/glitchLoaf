@@ -33,7 +33,7 @@ glitch_config['bismuth'] = None
 ###############################################################################
 # Put your desired input and output here!
 input_path = 'imgs'
-gs = ['sun-img.jpg']
+gs = ['sgt1.png']
 
 output_path = os.path.join('results')
 

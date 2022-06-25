@@ -93,12 +93,12 @@ def loadSavedConfig(config_ID):
                                           'sze-max'  : 1/25, 
                                           'sze-min'  : 1/60,
                                           'thicc-style': 'constant',
-                                          'thicc-max': 1,
+                                          'thicc-max': 0.1,
                                           'thicc-min': 0,
                                           'cannySig':1}
         
         asRat = 1
-        height = 512
+        height = 1024
         glitch_config['output-size'] = (height, int(asRat * height))
         
         glitch_config['blur'] = {'style':'constant',

@@ -24,6 +24,16 @@ import numpy.random as r
 #       * see unfinished glitch routines at the end of file
 # TODO: better job of keeping original dynamic range
 #       info = np.iinfo(self.img.dtype)
+# Thoughts: how to preserve glitch from one frame to the next
+# 1) just change the 'source' image or keep another copy of 'baseline'
+#     so future glitches are applied to that instead [wont work with bismuth]
+#     --> need to know where the last bismuth growth occured etc; i.e. 
+#         persistent parameters
+# 2) add save-frame to the bismuth effect itself so it creates the GIF 
+#      (basically steppping outside the current class system but should work)
+# 3) bismuth is its own class (owned by the glitchloaf) that has a 'grow'
+#     function
+            
 class bunGlitcher:
     def __init__(self, ogDataPath, output_path, frameSelect, resampleTo = None):
         self.ogDataPath = ogDataPath
@@ -240,80 +250,6 @@ class bunGlitcher:
                                        maxBlockPerc = glitchSize,
                                        intensity =glitchIntensity))
     
-    def bismuthGrowth(self, startPoint, startDirection = None, patchSize = [0.25,0.25],
-                      length = 25, max_jump = 0.1, direction_consistency = 1, distSamplerName='normal',
-                      do_edge=True, filler = None):
-        '''
-        Take a block of pixels and slide it around, leaving a trail of itself behind.
-        direction_consistency: how crazy the trail is
-            If direction_consistency == 0, direction of trail is random.
-            If direction_consistency == 1, direction is unchanging after 1st random pull.
-        
-        distSamplerName: name of numpy.random module from which to sample distances.
-        '''
-        def renorm(X):
-            if isinstance(X, list):
-                X = np.array(X)
-            return X/X.sum()
-        
-        def randomUnitVector(N):
-            ''' generate a random vector on unit N-ball'''
-            random_direction = renorm(np.random.rand(N) - 0.5)
-            return np.array(random_direction)
-        
-        def getFiller(src, x,y, r=1, filler=None):
-            patch = src[x-int(r*halfPat[0]):x+int(r*halfPat[0]),
-                        y-int(r*halfPat[1]):y+int(r*halfPat[1]),:]
-            if filler is not None:
-                patch = self.imresize(filler, (patch.shape[1],patch.shape[0]))
-            if filler.shape[-1]==4:
-                patch = patch[:,:,:3]
-            return patch
-        
-        imRows = self.img.shape[0]
-        imCols = self.img.shape[1]
-        patchPixels =  np.array([round(patchSize[0] * imRows), round(patchSize[1] * imCols)])
-        halfPat     =  np.array([round(patchPixels[0] / 2), round(patchPixels[1] /2)])
-        
-        # Initialize stepsizer
-        sampleStepsize = lambda: getattr(np.random, distSamplerName)()
-        
-        # TODO: randomize starting position
-        lastDir = randomUnitVector(2) if startDirection is None else renorm(startDirection)
-        x = round(imRows * startPoint[0])
-        y = round(imCols * startPoint[1])
-        
-        lastRow = x
-        lastCol = y
-        src = np.copy(self.img)
-            
-        for fram in range(length):
-            try:
-                # Calculate next block location:
-                lastDir = direction_consistency * renorm(lastDir) + (1-direction_consistency)*randomUnitVector(2)
-                offset = (sampleStepsize() * max_jump * patchPixels) * renorm(lastDir)
-                lastRow += round(offset[0])
-                lastCol += round(offset[1])
-                
-                lastRow = max(0, lastRow)
-                lastCol = max(0, lastCol)
-                # TODO: randomize size...?...
-                r = 0.5 + np.random.rand() * 0.25
-                # Add the block to the new location:
-                self.img[lastRow-int(halfPat[0]*r):lastRow+int(halfPat[0]*r), 
-                         lastCol-int(halfPat[1]*r):lastCol+int(halfPat[1]*r),:] = getFiller(src, x,y,r, filler)
-                # Add edge
-                if do_edge:
-                    self.img[lastRow-halfPat[0]:lastRow+halfPat[0], lastCol-halfPat[1], :] *= 0
-                    self.img[lastRow-halfPat[0]:lastRow+halfPat[0], lastCol+halfPat[1], :] *= 0
-                    self.img[lastRow-halfPat[0], lastCol-halfPat[1]:lastCol+halfPat[1], :] *= 0
-                    self.img[lastRow+halfPat[0], lastCol-halfPat[1]:lastCol+halfPat[1], :] *= 0
-            except Exception as e:
-                print('failed bismuth as frame {}/{}'.format(fram, length))
-                print(e)
-                return
-            
-
         
     def randomOcclusion(self, nPatches, size_perc,
                         filler_imgs = [], cChans_to_swap = 2):
