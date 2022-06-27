@@ -26,21 +26,33 @@ from glitchManager import createGlitch
 ###############################################################################
 # Configuration (settings)
 
-glitch_config = loadSavedConfig('last-ghoul')
+glitch_config = loadSavedConfig('no-glitch')
 
-glitch_config['bismuth'] = None
-
+glitch_config['bismuth'] = {#'startPoint': [centerPixel],
+                           'direction': None,
+                           'overlap': 0.25,
+                           'patchSize': (0.1,0.1),
+                           'growProb': 1,
+                           'splitProb':0.4,
+                           # Not Implemented:
+                           'scaleRate':1,
+                           'filler': None} #imgio.imread(r"C:\Users\BenJammin\Desktop\glitchLoaf\imgs\ghoul-flame.png"), }
+ 
+height = 512
+glitch_config['output-size'] = (height, int( height))
+glitch_config['frame-select'] = {'beg':0, 'stepsize':1, 'end': 30}
 ###############################################################################
 # Put your desired input and output here!
 input_path = 'imgs'
 gs = ['sgt1.png']
+add2save = '_NEW'
 
 output_path = os.path.join('results')
 
 for idx, fName in enumerate(gs):
     glitch_config['rng-seed'] = sum([ord(z) for z in fName])*23 # random number based on filename
     input_file  = os.path.join(input_path, fName)
-    save_path   = os.path.join(output_path, fName.split('.')[0])
+    save_path   = os.path.join(output_path, fName.split('.')[0]) + add2save
         
     glitch_config['rng-seed'] = idx ** 2
     createGlitch(input_file, save_path, glitch_config)

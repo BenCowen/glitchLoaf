@@ -17,6 +17,7 @@ from skimage.util import random_noise
 from skimage import feature
 from scipy import ndimage as ndi
 import numpy.random as r
+from Bismuth import BismuthDruse
 
 # TODO: * preserve alpha channel in random occlusions
 #       * replace slicing with comprehension or smart indexing
@@ -24,18 +25,10 @@ import numpy.random as r
 #       * see unfinished glitch routines at the end of file
 # TODO: better job of keeping original dynamic range
 #       info = np.iinfo(self.img.dtype)
-# Thoughts: how to preserve glitch from one frame to the next
-# 1) just change the 'source' image or keep another copy of 'baseline'
-#     so future glitches are applied to that instead [wont work with bismuth]
-#     --> need to know where the last bismuth growth occured etc; i.e. 
-#         persistent parameters
-# 2) add save-frame to the bismuth effect itself so it creates the GIF 
-#      (basically steppping outside the current class system but should work)
-# 3) bismuth is its own class (owned by the glitchloaf) that has a 'grow'
-#     function
+
             
 class bunGlitcher:
-    def __init__(self, ogDataPath, output_path, frameSelect, resampleTo = None):
+    def __init__(self, ogDataPath, output_path, frameSelect, resampleTo = None, glitchList = ['initBismuth']):
         self.ogDataPath = ogDataPath
         self.out_path   = output_path
         self.resampleTo = resampleTo
@@ -49,6 +42,11 @@ class bunGlitcher:
         # May be filled with gif frames:
         self.outputGif = []
         
+        # Initialize persistent glitch objects:
+        self.pGlitches = []
+        for glitchName in glitchList:
+            self.pGlitches.append( getattr(self, glitchName) )
+            
     def _setupInputData(self, dataPath):
         ''' loads in the data to memory, initializes metadata'''
         if dataPath.endswith(('jpg','png')):
@@ -165,6 +163,29 @@ class bunGlitcher:
                                             (ncols, nrows))
         return filler
     
+    ######################################
+    # Persistent Glitch Initialization
+    # TODO: abstract persistent glitch class?... just make bismuth for now
+    # TODO: config redux: 1 config per frame, and a gifConfig that
+    #              generates subsequent ones with randomness
+    def initBismuth(self, config = None):
+        self.druse = BismuthDruse(self.ogData, config)
+        self.druse.newCrystal(config)
+        
+    def growBismuth(self):
+        # TODO: have split_prob grow every frame? Make grow_prob
+        #         and split_prob a property of each particular crystal
+        # Determine which crystals to grow and/or split:
+        # if a number is given then all crystals have same chance.
+        
+        # Grow selected crystals:
+        self.druse.growCrystals()
+        # Split crystals:
+        self.druse.splitCrystals( n_splits = 2, sepAngle = 180)
+        print('nBis={}'.format(len(self.druse)))
+    def applyPersistentGlitches(self):
+        self.img = self.druse.applyAllHistory(self.img)
+        
     ######################################
     # Actual Glitch Effects
     def imSlice(self, subset, subset_jitter = 0, data = None):

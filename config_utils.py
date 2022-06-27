@@ -128,5 +128,6 @@ def loadSavedConfig(config_ID):
                                       'jitter-style': 'constant',
                                       'max'  : 0,
                                       'min'  : 0}
-
+    else:
+        glitch_config = {}
     return glitch_config

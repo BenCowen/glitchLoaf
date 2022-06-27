@@ -15,20 +15,19 @@ import imageio as imgio
 # From here on should be automated
 def createGlitch(input_file, output_path, glitch_config):
     
+    ##########################################################
+    # Create the glitcher object:
     loaf = glitchLib.bunGlitcher(input_file, output_path, glitch_config['frame-select'], glitch_config['output-size'])
         
-    # The actual gif loop happens outside the glitcher.
-    # Can put -1 if you want all frames; also caps to the last frame. TODO: cycle?
+    # Initialize frame loop parameters
     if loaf.frame_end == 1 and glitch_config['frame-select']['end']>1:
         frames2do = glitch_config['frame-select']['end']
     else:
         frames2do = max(1, int(np.ceil((loaf.frame_end-loaf.frame_beg)/loaf.frame_stepsize)))
     
-    # TODO:
-    # Not sure how to generalize the ramp book for "rule" scenario:
-    glitch_config['colorOffset'] = lambda f: bool(f > (0*frames2do))
-    
-    #############
+    ##########################################################
+    # Setup parameter functions to change with frames:
+    # TODO: abstract this to a schedule class and avoid 50 lines of config specification
     lin = np.linspace(0,1, int(frames2do/2))
     ramps = {'increasing': np.linspace(0,1, int(frames2do)),
              'decreasing': [n for n in reversed(np.linspace(0,1,int(frames2do)))],
@@ -50,21 +49,23 @@ def createGlitch(input_file, output_path, glitch_config):
     edgeThiccner    = lambda f:   edgeGT['thicc-min']  +    edgeGT['thicc-max'] * ramps[edgeGT['thicc-style']][f]
     
     # Subset slice parameters:
-    subSlice = glitch_config['subSlice']
+    subSlice       = glitch_config['subSlice']
     subset_jitter  = lambda f: subSlice['min']  + subSlice['max'] * ramps[subSlice['jitter-style']][f]
+    
     # Patch swapping parameters:
-    occludes = glitch_config['occludes']
-    noise = glitch_config['noise']
-    blur = glitch_config['blur']
-    clrswp = glitch_config['clrswp']
+    occludes  = glitch_config['occludes']
+    noise     = glitch_config['noise']
+    blur      = glitch_config['blur']
+    clrswp    = glitch_config['clrswp']
     size_perc = lambda f:  occludes['size-min'] + occludes['size-max'] * ramps[occludes['size-style']][f]
     n_occlude = lambda f:  occludes['num-min']  + occludes['num-max']  * ramps[occludes['num-style']][f]
     noiseMean = lambda f:         noise['min']  +    noise['max'] * ramps[noise['style']][f]
     blurWidth = lambda f:          blur['min']  +     blur['max'] * ramps[blur['style']][f]
-    colorSwapProb = lambda f:          clrswp['min']  +     clrswp['max'] * ramps[clrswp['style']][f]
+    colorSwapProb = lambda f:    clrswp['min']  +   clrswp['max'] * ramps[clrswp['style']][f]
     
     
     #######################################################################################
+    # Initialize filler imagines if only image paths were given
     if (len(occludes['filler-imgs'])>0) and (isinstance(occludes['filler-imgs'][0], str)):
         filler_images = [imgio.imread(imgPath) for imgPath in occludes['filler-imgs']]
     else:
@@ -73,17 +74,25 @@ def createGlitch(input_file, output_path, glitch_config):
     #######################################################################################
     np.random.seed(glitch_config['rng-seed'])
     frames_done = 0
+    
+    #------------------------------------------
+    # TEMP:
+    nrows, ncols = loaf.ogData.shape[0],loaf.ogData.shape[1]
+    glitch_config['bismuth']['startPoint'] = (nrows//2, ncols//2)
+    loaf.initBismuth(glitch_config['bismuth'])
+    #------------------------------------------
+    
     while True:
-        #############################
+        ##########################################################
         # Keep track of frames     
-        # TODO: randomly go backward N frames (deja vu)
+        # TODO: randomly go backward N frames (deja vu effect)
         isDone = (frames_done>=frames2do)
         if isDone:
             break
         print('Processing frame {}/{}...'.format(frames_done+1, frames2do))
-        #############################
-        # Change parameters as
-        #  w/frame number.
+        
+        ##########################################################
+        # Call parameter functions to actually fill in values
         imSlice = subset_jitter(frames_done)
         
         nOcclde = int(n_occlude(frames_done))
@@ -92,7 +101,7 @@ def createGlitch(input_file, output_path, glitch_config):
         gtN       = int(numGlitches(frames_done))
         gtIntsy   = glitchIntensity(frames_done)
         gtChunkSz = glitchSize(frames_done)
-        colrOff = False #Notimplemented anymore...
+        colrOff   = False #Notimplemented anymore...
         
         noisAvg = noiseMean(frames_done)
         blurLvl = blurWidth(frames_done)
@@ -104,26 +113,26 @@ def createGlitch(input_file, output_path, glitch_config):
         edgeThc     = 0 if (edgeThc<0.01) else edgeThc
         
         clrSwap = colorSwapProb(frames_done)
-        #############################
-        # Process the current frame
-        # Go to next frame
+        
+        ##########################################################
+        # Process the the next frame
         loaf.nextFrame()
         
-        # Bismuth growth
-        if glitch_config['bismuth']  is not None:
-            patchSize = [np.random.rand()/2 for n in range(2)]
-            startPoint =  [0.5+(np.random.rand() -0.5)/2.5 for n in range(2)] #[0.33, 0.5]
-            startDirection = None#[1, 1]
-            length = np.random.randint(0,15)
-            direction_consistency = 0.75
-            max_jump = 0.25
-            distSamplerName = 'normal'
-            do_edge = False
-            filler = imgio.imread(r"C:\Users\BenJammin\Desktop\glitchLoaf\imgs\ghoul-flame.png") 
-            loaf.bismuthGrowth(startPoint, startDirection, patchSize = patchSize, 
-                                length = length, max_jump =max_jump, 
-                                direction_consistency = direction_consistency,
-                                distSamplerName=distSamplerName, do_edge=do_edge, filler=filler)
+        # TODO: really need to loop through a list of methods (requested glitches)
+        #        whose order is in config instead of listing out here...
+        # TODO: basically really need to do a major config refactor. first get plumbing into place.
+        
+        # For now...
+        # (0) bismuth init first frame
+        # (1) bismuth grow
+        # (2) apply all hist
+        # Grow existing bismuth:
+        loaf.growBismuth()
+        newBismuthRegularity = 0
+        if np.random.rand() < newBismuthRegularity:
+            config['startPoint'] = random
+            loaf.newCrystal(config)
+        loaf.applyPersistentGlitches()
         
         # Take jittered subset of the whole frame:
         loaf.imSlice(subSlice['limits'], subset_jitter = imSlice)
