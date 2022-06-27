@@ -31,9 +31,11 @@ glitch_config = loadSavedConfig('no-glitch')
 glitch_config['bismuth'] = {#'startPoint': [centerPixel],
                            'direction': None,
                            'overlap': 0.25,
-                           'patchSize': (0.1,0.1),
-                           'growProb': 1,
-                           'splitProb':0.4,
+                           'patchSize': (0.2,0.2),
+                           'growProb': 0.8,
+                           'splitProb':0.1,
+                           'n-splits': 2,
+                           'random-new' : 0.033,
                            # Not Implemented:
                            'scaleRate':1,
                            'filler': None} #imgio.imread(r"C:\Users\BenJammin\Desktop\glitchLoaf\imgs\ghoul-flame.png"), }
@@ -43,8 +45,9 @@ glitch_config['output-size'] = (height, int( height))
 glitch_config['frame-select'] = {'beg':0, 'stepsize':1, 'end': 30}
 ###############################################################################
 # Put your desired input and output here!
-input_path = 'imgs'
-gs = ['sgt1.png']
+# input_path = 'imgs'
+gs = ['CorruptedROM_021.png']
+input_path = r"C:\Users\BenJammin\Desktop\glitchLoaf\imgs\killScreen"
 add2save = '_NEW'
 
 output_path = os.path.join('results')

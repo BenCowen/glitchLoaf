@@ -169,7 +169,7 @@ class bunGlitcher:
     # TODO: config redux: 1 config per frame, and a gifConfig that
     #              generates subsequent ones with randomness
     def initBismuth(self, config = None):
-        self.druse = BismuthDruse(self.ogData, config)
+        self.druse = BismuthDruse(self.clean_img, config)
         self.druse.newCrystal(config)
         
     def growBismuth(self):

@@ -43,28 +43,37 @@ class BismuthCrystal():
         """ paint filler onto an image"""
         rowCenter  = self.pos_hist[idx][0]
         halfHeight = round(self.nrows/2)
-        rowSt      = rowCenter - halfHeight
+        rowSt      = max(0, rowCenter - halfHeight)
         rowFin     = min(rowSt + self.nrows, image.shape[0])
-        nrows      = rowFin - rowSt
+        nrows      = max(0, rowFin - rowSt)
         
         colCenter  = self.pos_hist[idx][1]
         halfWidth  = round(self.ncols/2)
-        colSt      = colCenter - halfWidth
+        colSt      = max(0, colCenter - halfWidth)
         colFin     = min(colSt + self.ncols, image.shape[1])
-        ncols      = colFin - colSt
+        ncols      = max(0, colFin - colSt)
         
+        # print('-------------')
+        # print('rowSt{} -- len{}'.format(rowSt, nrows + rowSt))
+        # print('colSt{} -- len{}'.format(colSt, ncols + colSt))
+        # print('Filler size:{}'.format(self.filler.shape))
+        # print('image size:{}'.format(image.shape))
         if nrows<=0 or ncols<=0:
             return image, False
-        
-        image[rowSt:rowFin, colSt:colFin, :] = self.filler[:nrows, :ncols, :]
+        else:
+            success =  True
+        try:
+            image[rowSt:rowFin, colSt:colFin, :] = self.filler[:nrows, :ncols, :]
+        except ValueError:
+            print('hi')
         # Add edge
         if self.do_edge:
             image[lastRow-halfPat[0]:lastRow+halfPat[0], lastCol-halfPat[1], :] *= 0
             image[lastRow-halfPat[0]:lastRow+halfPat[0], lastCol+halfPat[1], :] *= 0
             image[lastRow-halfPat[0], lastCol-halfPat[1]:lastCol+halfPat[1], :] *= 0
             image[lastRow+halfPat[0], lastCol-halfPat[1]:lastCol+halfPat[1], :] *= 0
-            
-        return image, True
+        # print('success={}'.format(success))
+        return image, success
     
     
 class BismuthDruse:
@@ -75,6 +84,8 @@ class BismuthDruse:
         self.crystals = []
         self.base_config = config
         
+    def __len__(self):
+        return len(self.crystals)
     def newCrystal(self, config=None, startPoint=None, direction = None):
         if config is None:
             config = self.base_config
@@ -87,11 +98,12 @@ class BismuthDruse:
         if filler is None:
             filler = self.getPatch(self.image, startPoint, config['patchSize'])
             
-        self.crystals.append( BismuthCrystal(config['startPoint'], filler, 
+        self.crystals.append( BismuthCrystal(startPoint, filler, 
                                              direction, config['growProb'],
                                              config['splitProb'], config['overlap']) )
         
     def splitCrystals(self, n_splits = 2, sepAngle = 180):
+        n_splits = n_splits if (self.base_config['n-splits'] is None) else self.base_config['n-splits']
         #TODO: how change config for new splits?
         for crystal_idx in range(len(self.crystals)):
             if np.random.rand() < self.crystals[crystal_idx].splitProb:

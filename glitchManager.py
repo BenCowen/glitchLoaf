@@ -77,9 +77,6 @@ def createGlitch(input_file, output_path, glitch_config):
     
     #------------------------------------------
     # TEMP:
-    nrows, ncols = loaf.ogData.shape[0],loaf.ogData.shape[1]
-    glitch_config['bismuth']['startPoint'] = (nrows//2, ncols//2)
-    loaf.initBismuth(glitch_config['bismuth'])
     #------------------------------------------
     
     while True:
@@ -127,11 +124,15 @@ def createGlitch(input_file, output_path, glitch_config):
         # (1) bismuth grow
         # (2) apply all hist
         # Grow existing bismuth:
+        if frames_done<1:
+            nrows, ncols = loaf.img.shape[0],loaf.img.shape[1]
+            glitch_config['bismuth']['startPoint'] = (nrows//2, ncols//2)
+            loaf.initBismuth(glitch_config['bismuth'])
+        if np.random.rand() < glitch_config['bismuth']['random-new']:
+            glitch_config['bismuth']['startPoint'] = (np.random.randint(0,loaf.clean_img.shape[0]), np.random.randint(0,loaf.clean_img.shape[1]))
+            loaf.druse.newCrystal( glitch_config['bismuth'])
         loaf.growBismuth()
         newBismuthRegularity = 0
-        if np.random.rand() < newBismuthRegularity:
-            config['startPoint'] = random
-            loaf.newCrystal(config)
         loaf.applyPersistentGlitches()
         
         # Take jittered subset of the whole frame:
