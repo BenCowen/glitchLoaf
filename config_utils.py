@@ -6,7 +6,7 @@ saved configs
 """
 
 def loadSavedConfig(config_ID):
-    if config_ID == 'no-glitch':
+    if (config_ID is None) or (config_ID == 'no-glitch'):
         glitch_config = {}
 
 
@@ -51,8 +51,8 @@ def loadSavedConfig(config_ID):
                                      'num-min': 0,
                                      'size-style': 'constant',
                                      'size-max': 0.333,
-                                     'size-min': 0.2,
-                                     'filler-imgs': []}
+                                     'size-min': 0.2}
+        glitch_config['filler-imgs'] = []
                                     
         glitch_config['clrswp'] = {'style':'constant',
                                    'max':0,
@@ -112,8 +112,8 @@ def loadSavedConfig(config_ID):
                                       'num-min': 0,
                                       'size-style': 'updown-linear',
                                       'size-max': 0.333,
-                                      'size-min': 0.1,
-                                      'filler-imgs': []}
+                                      'size-min': 0.1}
+        glitch_config['filler-imgs'] = []
                                     
         glitch_config['clrswp'] = {'style':'constant',
                                     'max':0,

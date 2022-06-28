@@ -67,10 +67,21 @@ def createGlitch(input_file, output_path, glitch_config):
     
     #######################################################################################
     # Initialize filler imagines if only image paths were given
-    if (len(occludes['filler-imgs'])>0) and (isinstance(occludes['filler-imgs'][0], str)):
-        filler_images = [imgio.imread(imgPath) for imgPath in occludes['filler-imgs']]
+    if (len(glitch_config['filler-imgs'])>0) and (isinstance(glitch_config['filler-imgs'][0], str)):
+        filler_images = [imgio.imread(imgPath) for imgPath in glitch_config['filler-imgs']]
     else:
-        filler_images = occludes['filler-imgs']
+        filler_images = glitch_config['filler-imgs']
+    if filler_images is not None:
+        # TODO: breaking occlude behavior for the sake of bismuth right now:
+        for idx, I in enumerate(filler_images):
+            filler_images[idx] = loaf.resizedSlices(I,
+                                          loaf.resampleTo[0], loaf.resampleTo[1],
+                                          [n for n in range(I.shape[-1])])
+        nFiller = len(filler_images)
+        randomFiller = lambda: filler_images[np.random.randint(0,nFiller)]
+    else:
+        randomFiller = None
+        
         
     #######################################################################################
     np.random.seed(glitch_config['rng-seed'])
@@ -117,19 +128,19 @@ def createGlitch(input_file, output_path, glitch_config):
         
         # TODO: really need to loop through a list of methods (requested glitches)
         #        whose order is in config instead of listing out here...
-        # TODO: basically really need to do a major config refactor. first get plumbing into place.
         if bisConfig is not None:
+            # Select a filler:
             if frames_done<1 or (np.random.rand()<bisConfig['new-origin-prob']):
                 oConfig = bisConfig['origin-config']
                 if frames_done<1:
                     nrows, ncols = loaf.img.shape[0],loaf.img.shape[1]
                     oConfig['startPoint'] = (nrows//2, ncols//2)
-                    loaf.initBismuth(oConfig, bisConfig['split-config'])
+                    loaf.initBismuth(randomFiller(), oConfig, bisConfig['split-config'])
                 else:
                     oConfig['startPoint'] = (np.random.randint(0,loaf.clean_img.shape[0]), np.random.randint(0,loaf.clean_img.shape[1]))
-                    loaf.druse.newCrystal(oConfig)
+                    loaf.druse.newCrystal(randomFiller(), oConfig)
                     
-            loaf.growBismuth()
+            loaf.growBismuth(randomFiller())
             loaf.applyPersistentGlitches()
         
         # Take jittered subset of the whole frame:

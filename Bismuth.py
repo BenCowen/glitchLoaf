@@ -23,7 +23,7 @@ class BismuthCrystal():
         self.nrows, self.ncols = self.filler.shape[0], self.filler.shape[1]
         self.growProb  = growProb
         self.splitProb = splitProb
-        self.jump_size =  np.sqrt(self.nrows**2 + self.ncols**2) * overlap
+        self.jump_size =  np.sqrt(self.nrows**2 + self.ncols**2) * (1-overlap)
         self.do_edge   = do_edge
         self.patchSize = patchSize
     def __len__(self):
@@ -78,18 +78,17 @@ class BismuthCrystal():
     
 class BismuthDruse:
     """ A collection of Bismuth Crystals"""
-    def __init__(self, image, origin_config, split_config):
+    def __init__(self, origin_config, split_config):
         # Filler is always taken from original if not provided.
-        self.image    = image 
         self.crystals = []
         self.do_edges = origin_config['highlight-edges']
-        self.base_config = origin_config
+        self.base_config  = origin_config
         self.split_config = split_config
         
     def __len__(self):
         return len(self.crystals)
     
-    def newCrystal(self, config=None, fromSplit = False, startPoint=None, 
+    def newCrystal(self, filler, config=None, fromSplit = False, startPoint=None, 
                    direction = None, lastPatchSize=None):
         if config is None:
             config = self.base_config
@@ -114,20 +113,18 @@ class BismuthDruse:
             direction = self.randomUnitVector()  if (config['direction'] is  None) else config['direction']
             
         #----------------------------
-        # Parse filler    
-        # If no aux filler is provided, take the corresponding chunk from given img
-        filler = config['filler'] if ('filler' in config) else self.getPatch(self.image, startPoint, patchSize)
+        # Parse filler
+        patch = self.getPatch(filler, startPoint, patchSize)
          
         #----------------------------
         # Create the new Crystal:   
-        self.crystals.append( BismuthCrystal(startPoint, filler, 
+        self.crystals.append( BismuthCrystal(startPoint, patch, 
                                              direction, config['growProb'],
                                              config['splitProb'], config['overlap'],
                                              do_edge=self.do_edges, patchSize=patchSize))
         self.crystals[-1].fromSplit = fromSplit
-    def splitCrystals(self, n_splits = 2, sepAngle = 180):
         
-        #TODO: how change config for new splits?
+    def splitCrystals(self, filler, n_splits = 2, sepAngle = 180):
         for crystal_idx in range(len(self.crystals)):
             if np.random.rand() < self.crystals[crystal_idx].splitProb:
                 self.crystals[crystal_idx].growProb = 0
@@ -147,7 +144,7 @@ class BismuthDruse:
                     new_pos = crystal.grow(override_dir = new_dir, return_new = True)
                     self.split_config['startPoint'] = new_pos
                     self.split_config['direction'] = new_dir
-                    self.newCrystal(config=self.split_config, fromSplit=True, 
+                    self.newCrystal(filler, config=self.split_config, fromSplit=True, 
                                     lastPatchSize=crystal.patchSize)
         
     def growCrystals(self):
@@ -168,17 +165,20 @@ class BismuthDruse:
         return image
     
     def getPatch(self, src, center, patchSize, r=1): 
-       x, y = center[0], center[1]
-       imRows = src.shape[0]
-       imCols = src.shape[1]
-       patchPixels = np.array([round(patchSize[0] * imRows), round(patchSize[1] * imCols)])
-       halfPat     = np.array([round(patchPixels[0] / 2), round(patchPixels[1] /2)])
+        x, y = center[0], center[1]
+        imRows = src.shape[0]
+        imCols = src.shape[1]
+        patchPixels = np.array([round(patchSize[0] * imRows), round(patchSize[1] * imCols)])
+        halfPat     = np.array([round(patchPixels[0] / 2), round(patchPixels[1] /2)])
   
-       patch = src[x-int(r*halfPat[0]):x+int(r*halfPat[0]),
-                   y-int(r*halfPat[1]):y+int(r*halfPat[1]),:]
-       # if patch.shape[-1]==4:
-       #     patch = patch[:,:,:3]
-       return patch
+        rowSt  = max(x-int(r*halfPat[0]), 0)
+        rowFin = min(x+int(r*halfPat[0]), imRows-1)
+        colSt  = max(y-int(r*halfPat[1]), 0)
+        colFin = min(y+int(r*halfPat[1]), imCols-1)
+        patch  = src[rowSt:rowFin, colSt:colFin,:]
+        # if patch.shape[-1]==4:
+        #     patch = patch[:,:,:3]
+        return patch
    
     # @staticmethod
     def renorm(self, X):

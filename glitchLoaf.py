@@ -136,7 +136,7 @@ class bunGlitcher:
     def _toPIL(self, inputs = None):
         ''' converts numpy array to PIL and takes care of float->uint8'''
         data = self.img if (inputs is None) else inputs
-        if type(self.img) is not Image.Image:
+        if type(data) is not Image.Image:
             # Scale values back to uint8:
             data = self.toNumpy01(data)
             data *= 255
@@ -175,21 +175,17 @@ class bunGlitcher:
     # TODO: abstract persistent glitch class?... just make bismuth for now
     # TODO: config redux: 1 config per frame, and a gifConfig that
     #              generates subsequent ones with randomness
-    def initBismuth(self, origin_config = None, split_config = None):
-        self.druse = BismuthDruse(self.clean_img, origin_config, split_config)
-        self.druse.newCrystal(origin_config)
+    def initBismuth(self, filler_img, origin_config = None, split_config = None):
+        self.druse = BismuthDruse(origin_config, split_config)
+        self.druse.newCrystal(filler_img, origin_config)
         
-    def growBismuth(self):
-        # TODO: have split_prob grow every frame? Make grow_prob
-        #         and split_prob a property of each particular crystal
-        # Determine which crystals to grow and/or split:
-        # if a number is given then all crystals have same chance.
-        
-        # Grow selected crystals:
+    def growBismuth(self, filler_img):        
+        # Grow crystals:
         self.druse.growCrystals()
         # Split crystals:
-        self.druse.splitCrystals( n_splits = 2, sepAngle = 180)
+        self.druse.splitCrystals(filler_img, n_splits = 2, sepAngle = 180)
         print('nBis={}'.format(len(self.druse)))
+        
     def applyPersistentGlitches(self):
         self.img = self.druse.applyAllHistory(self.img)
         
