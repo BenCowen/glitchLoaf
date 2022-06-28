@@ -26,34 +26,48 @@ from glitchManager import createGlitch
 ###############################################################################
 # Configuration (settings)
 
-glitch_config = loadSavedConfig('no-glitch')
+glitch_config = loadSavedConfig('last-ghoul')
+glitch_config['save-list-frame'] = True
+glitch_config['process-fft'] = False
 
-glitch_config['bismuth'] = {#'startPoint': [centerPixel],
-                           'direction': None,
-                           'overlap': 0.25,
-                           'patchSize': (0.2,0.2),
-                           'growProb': 0.8,
-                           'splitProb':0.1,
-                           'n-splits': 2,
-                           'random-new' : 0.033,
-                           # Not Implemented:
-                           'scaleRate':1,
-                           'filler': None} #imgio.imread(r"C:\Users\BenJammin\Desktop\glitchLoaf\imgs\ghoul-flame.png"), }
- 
+# glitch_config['bismuth']=None
+glitch_config['bismuth'] = {'new-origin-prob':0.25,
+                            'origin-config':
+                                {'startPoint': 'center',
+                                  'directionStyle': 'cart',
+                                  'overlap': 0.01,
+                                  'patchSize':(0.3,0.3),
+                                  'growProb':1,
+                                  'splitProb':.25,
+                                  'surviveSplit':True,
+                                  'n-splits':2,
+                                  'highlight-edges':False,
+                                  'sep-angle':180
+                                  },
+                            'split-config':
+                                {'overlap': 0.125,
+                                  'patchSizeFactor':0.75,
+                                  'growProb': 1,
+                                  'splitProb':0.1,
+                                  'surviveSplit':False,
+                                  'n-splits':2,
+                                  'sep-angle':180
+                                  }
+                            }
 height = 512
 glitch_config['output-size'] = (height, int( height))
-glitch_config['frame-select'] = {'beg':0, 'stepsize':1, 'end': 30}
+glitch_config['frame-select'] = {'beg':0, 'stepsize':1, 'end': 50}
 ###############################################################################
 # Put your desired input and output here!
 # input_path = 'imgs'
-gs = ['CorruptedROM_021.png']
+gs = ['CorruptedROM_025.png']
 input_path = r"C:\Users\BenJammin\Desktop\glitchLoaf\imgs\killScreen"
-add2save = '_NEW'
+add2save = 'glitch'
 
 output_path = os.path.join('results')
 
 for idx, fName in enumerate(gs):
-    glitch_config['rng-seed'] = sum([ord(z) for z in fName])*23 # random number based on filename
+    glitch_config['rng-seed'] = sum([ord(z) for z in fName])*32 # random number based on filename
     input_file  = os.path.join(input_path, fName)
     save_path   = os.path.join(output_path, fName.split('.')[0]) + add2save
         

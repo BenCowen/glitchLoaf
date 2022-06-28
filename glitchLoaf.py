@@ -28,7 +28,8 @@ from Bismuth import BismuthDruse
 
             
 class bunGlitcher:
-    def __init__(self, ogDataPath, output_path, frameSelect, resampleTo = None, glitchList = ['initBismuth']):
+    def __init__(self, ogDataPath, output_path, frameSelect, resampleTo = None, 
+                 glitchList = ['initBismuth'], process_fft=False):
         self.ogDataPath = ogDataPath
         self.out_path   = output_path
         self.resampleTo = resampleTo
@@ -37,8 +38,8 @@ class bunGlitcher:
         self.frame_beg = frameSelect['beg']
         self.frame_end = frameSelect['end']
         self.frame_stepsize = frameSelect['stepsize']
+        self.do_fft = process_fft
         self._setupInputData(ogDataPath)
-        
         # May be filled with gif frames:
         self.outputGif = []
         
@@ -52,6 +53,8 @@ class bunGlitcher:
         if dataPath.endswith(('jpg','png')):
             self.ogDataType = 'image'
             self.ogData     = np.array(imageio.imread(dataPath), dtype=float)
+            if self.do_fft:
+                self.ogData = np.abs(np.fft.fft2(self.ogData))
             self.ogFrames   = 1
         elif dataPath.endswith(('gif','mp4','webp')):
             self.ogDataType = 'video'
@@ -98,6 +101,8 @@ class bunGlitcher:
         
     def recordGifFrame(self):
         ''' save the current frame to the output Gif'''
+        if self.do_fft:
+            self.img = self.toNumpy01(np.abs(np.fft.ifft2(self.img)))
         self.outputGif.append(self.img)
         
     def writeGIF(self):        
@@ -106,8 +111,10 @@ class bunGlitcher:
         imageio.mimsave('{}.gif'.format(self.out_path), self.outputGif)
         print('Done!')
         
-    def writeFrame(self, cmap = None):
+    def writeFrame(self, cmap = None, xtra_savename=''):
         print('writing JPG to "{}"...'.format(self.out_path))
+        if self.do_fft:
+            self.img = self.toNumpy01(np.abs(np.fft.ifft2(self.img)))
         sizes = self.img.shape
         fig = plt.figure(dpi = 1200)
         fig.set_size_inches(1. * sizes[0] / sizes[1], 1, forward = False)
@@ -120,7 +127,7 @@ class bunGlitcher:
         else:
             ax.imshow(self.img, cmap = cmap)
             
-        plt.savefig('{}.jpg'.format(self.out_path))
+        plt.savefig('{}{}.jpg'.format(self.out_path, xtra_savename))
         plt.close()
         print('Done!')
         
@@ -168,9 +175,9 @@ class bunGlitcher:
     # TODO: abstract persistent glitch class?... just make bismuth for now
     # TODO: config redux: 1 config per frame, and a gifConfig that
     #              generates subsequent ones with randomness
-    def initBismuth(self, config = None):
-        self.druse = BismuthDruse(self.clean_img, config)
-        self.druse.newCrystal(config)
+    def initBismuth(self, origin_config = None, split_config = None):
+        self.druse = BismuthDruse(self.clean_img, origin_config, split_config)
+        self.druse.newCrystal(origin_config)
         
     def growBismuth(self):
         # TODO: have split_prob grow every frame? Make grow_prob

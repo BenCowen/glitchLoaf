@@ -16,8 +16,9 @@ import imageio as imgio
 def createGlitch(input_file, output_path, glitch_config):
     
     ##########################################################
-    # Create the glitcher object:
-    loaf = glitchLib.bunGlitcher(input_file, output_path, glitch_config['frame-select'], glitch_config['output-size'])
+    # Create the glitcher object:            
+    loaf = glitchLib.bunGlitcher(input_file, output_path, glitch_config['frame-select'], 
+                                 glitch_config['output-size'], process_fft=glitch_config['process-fft'])
         
     # Initialize frame loop parameters
     if loaf.frame_end == 1 and glitch_config['frame-select']['end']>1:
@@ -62,7 +63,7 @@ def createGlitch(input_file, output_path, glitch_config):
     noiseMean = lambda f:         noise['min']  +    noise['max'] * ramps[noise['style']][f]
     blurWidth = lambda f:          blur['min']  +     blur['max'] * ramps[blur['style']][f]
     colorSwapProb = lambda f:    clrswp['min']  +   clrswp['max'] * ramps[clrswp['style']][f]
-    
+    bisConfig = glitch_config['bismuth'] # shorthand
     
     #######################################################################################
     # Initialize filler imagines if only image paths were given
@@ -76,8 +77,7 @@ def createGlitch(input_file, output_path, glitch_config):
     frames_done = 0
     
     #------------------------------------------
-    # TEMP:
-    #------------------------------------------
+    
     
     while True:
         ##########################################################
@@ -118,22 +118,19 @@ def createGlitch(input_file, output_path, glitch_config):
         # TODO: really need to loop through a list of methods (requested glitches)
         #        whose order is in config instead of listing out here...
         # TODO: basically really need to do a major config refactor. first get plumbing into place.
-        
-        # For now...
-        # (0) bismuth init first frame
-        # (1) bismuth grow
-        # (2) apply all hist
-        # Grow existing bismuth:
-        if frames_done<1:
-            nrows, ncols = loaf.img.shape[0],loaf.img.shape[1]
-            glitch_config['bismuth']['startPoint'] = (nrows//2, ncols//2)
-            loaf.initBismuth(glitch_config['bismuth'])
-        if np.random.rand() < glitch_config['bismuth']['random-new']:
-            glitch_config['bismuth']['startPoint'] = (np.random.randint(0,loaf.clean_img.shape[0]), np.random.randint(0,loaf.clean_img.shape[1]))
-            loaf.druse.newCrystal( glitch_config['bismuth'])
-        loaf.growBismuth()
-        newBismuthRegularity = 0
-        loaf.applyPersistentGlitches()
+        if bisConfig is not None:
+            if frames_done<1 or (np.random.rand()<bisConfig['new-origin-prob']):
+                oConfig = bisConfig['origin-config']
+                if frames_done<1:
+                    nrows, ncols = loaf.img.shape[0],loaf.img.shape[1]
+                    oConfig['startPoint'] = (nrows//2, ncols//2)
+                    loaf.initBismuth(oConfig, bisConfig['split-config'])
+                else:
+                    oConfig['startPoint'] = (np.random.randint(0,loaf.clean_img.shape[0]), np.random.randint(0,loaf.clean_img.shape[1]))
+                    loaf.druse.newCrystal(oConfig)
+                    
+            loaf.growBismuth()
+            loaf.applyPersistentGlitches()
         
         # Take jittered subset of the whole frame:
         loaf.imSlice(subSlice['limits'], subset_jitter = imSlice)
@@ -172,4 +169,6 @@ def createGlitch(input_file, output_path, glitch_config):
         loaf.writeFrame()
     else:
         loaf.writeGIF()
+        if ('save-list-frame' in glitch_config) and glitch_config['save-list-frame']:
+            loaf.writeFrame()
     
