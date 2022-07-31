@@ -62,16 +62,16 @@ srcList = [imgio.imread(imgPath) for imgPath in srcPathList]
 print('Time to load {} imgs = {}s'.format(nSrc, time.time()-loadSt))
 
 # Number of auxiliary files
-nAuxList = [2, 10, 20, 200]
+nAuxList = [23]
 
 initialSt = time.time()
 expnum = 0
 totalEst = len(srcList) * len(nAuxList)
 timeList =[[] for n in nAuxList]
-for idx, motherFile in enumerate(srcList):
+for idx, motherFile in enumerate(srcPathList):
     for auxIdx, nAux in enumerate(nAuxList):
         # Output config:
-        motherID = srcPathList[idx].split('\\')[-1].split('.')[0]
+        motherID = motherFile.split('\\')[-1].split('.')[0]
         save_path = os.path.join(baseOutputPath, '{}_nAux{}'.format(motherID, nAux))
         
         # Aux files:
