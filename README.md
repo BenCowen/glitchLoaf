@@ -50,7 +50,7 @@ My original twitter earned a lifetime ban because I decided to start glitching t
 </table>
 <table align='center'>
 <tr>
-<td><img src="./results/keepers/ghoul3.gif.gif" width="180" height="180"/></td>
+<td><img src="./results/keepers/long-live.gif.gif" width="180" height="180"/></td>
 <td><img src="./results/keepers/ghoul0.gif.gif" width="180" height="180"/></td>
 <td><img src="./results/keepers/ghoul1.gif.gif" width="180" height="180"/></td>
 <td><img src="./results/keepers/ghoul2.gif.gif" width="180" height="180"/></td>
